@@ -1,4 +1,4 @@
-.PHONY: help deploy deploy-backend deploy-frontend up down restart logs pytest clean
+.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check pytest test clean
 
 # No docker-compose.yml/compose.yaml exists - only the explicit dev/prod files
 # below - so every docker compose call here must be pointed at one via -f.
@@ -34,10 +34,19 @@ restart: ## Restart services
 logs: ## View logs from services
 	$(COMPOSE) logs -f
 
+# TODO: once frontend/ has its own test/lint setup, check/pytest/test should
+# also run it (e.g. a check-frontend / test-frontend target folded into these).
+
+check: ## Run Django's system check
+	cd backend && uv run manage.py check
+
 pytest: ## Run the backend test suite
 	cd backend && uv run pytest
+
+test: check pytest ## Run everything: system check + test suite
 
 clean: ## Clean up Python cache and Docker resources
 	find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
+	find . -type d -name .pytest_cache -exec rm -r {} + 2>/dev/null || true
 	docker system prune -af
