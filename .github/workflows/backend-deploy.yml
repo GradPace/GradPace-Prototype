@@ -1,0 +1,25 @@
+name: Deploy to Production - Backend
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Build and Push Backend to GHCR"]
+    types:
+      - completed
+    branches:
+      - main
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Deploy to production
+        run: |
+          cd /srv/prototype
+          make deploy-backend

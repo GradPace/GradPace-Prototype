@@ -16,6 +16,11 @@ services:
       - VIRTUAL_PORT=8000
     restart: always
     init: true
+    healthcheck:
+      test: []
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - nginx-proxy
       - gradpace_net
@@ -53,6 +58,13 @@ services:
       - gradpace_net
 
   # Frontend
+  frontend:
+    image: ghcr.io/gradpace/gradpace-prototype/frontend:latest
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - gradpace_net
   
 
 networks:
