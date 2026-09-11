@@ -43,6 +43,9 @@ db.sqlite3-journal
 /backend/media/
 /backend/staticfiles/
 
+# Sphinx docs build output (source lives in backend/docs/)
+/backend/docs/_build/
+
 # ---------------------------------------------------------------------------
 # Node / frontend
 # ---------------------------------------------------------------------------

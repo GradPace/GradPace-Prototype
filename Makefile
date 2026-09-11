@@ -1,4 +1,4 @@
-.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check pytest test clean
+.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check pytest test docs clean
 
 # No docker-compose.yml/compose.yaml exists - only the explicit dev/prod files
 # below - so every docker compose call here must be pointed at one via -f.
@@ -45,8 +45,12 @@ pytest: ## Run the backend test suite
 
 test: check pytest ## Run everything: system check + test suite
 
+docs: ## Build the Sphinx docs (backend/docs/_build/html)
+	cd backend && uv run --group docs sphinx-build -b html docs docs/_build/html
+
 clean: ## Clean up Python cache and Docker resources
 	find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 	find . -type d -name .pytest_cache -exec rm -r {} + 2>/dev/null || true
+	rm -rf backend/docs/_build
 	docker system prune -af
