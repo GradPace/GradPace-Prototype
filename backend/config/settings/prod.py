@@ -79,6 +79,9 @@ MAILERS = {
 }
 DEFAULT_FROM_EMAIL = get_secret("DEFAULT_FROM_EMAIL", "noreply@gradpace.steyaert.xyz")
 
+# Where accounts.views.PasswordResetRequestView points the reset link.
+FRONTEND_URL = get_secret("FRONTEND_URL", "https://gradpace.steyaert.xyz")
+
 
 LOGGING = {
     "version": 1,

@@ -27,3 +27,5 @@ MAILERS = {
         "BACKEND": "django.core.mail.backends.locmem.EmailBackend",
     },
 }
+
+FRONTEND_URL = "http://localhost:3000"

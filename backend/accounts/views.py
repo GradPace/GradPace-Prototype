@@ -1,10 +1,32 @@
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .serializers import RegisterSerializer
+from .serializers import (
+    PasswordChangeSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+    RegisterSerializer,
+)
+
+User = get_user_model()
+
+
+def _blacklist_all_outstanding_tokens(user):
+    """Force logout everywhere - used after a password change/reset so an
+    old/stolen refresh token can't keep minting new access tokens."""
+    for outstanding in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=outstanding)
 
 
 class RegisterView(APIView):
@@ -52,6 +74,70 @@ class LogoutView(APIView):
             )
 
         return Response(status=status.HTTP_205_RESET_CONTENT)
+
+
+class PasswordChangeView(APIView):
+    """Authenticated (default IsAuthenticated) - requires the current
+    password. Also blacklists every other outstanding refresh token for the
+    user: a password change should force re-login on every other session."""
+
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        _blacklist_all_outstanding_tokens(user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PasswordResetRequestView(APIView):
+    """Public. Always returns 200, whether or not the email is registered -
+    the response can't be used to enumerate accounts. If it is registered,
+    emails a reset link built from settings.FRONTEND_URL."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            user = User.objects.get(email__iexact=serializer.validated_data["email"])
+        except User.DoesNotExist:
+            return Response(status=status.HTTP_200_OK)
+
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        reset_url = f"{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}"
+        context = {"reset_url": reset_url}
+
+        # Plain-text part first (some clients/spam filters want it) with the
+        # HTML version attached as an alternative, not HTML-only.
+        text_body = render_to_string("accounts/emails/password_reset.txt", context)
+        html_body = render_to_string("accounts/emails/password_reset.html", context)
+
+        email = EmailMultiAlternatives(
+            subject="Reset your GradPace password",
+            body=text_body,
+            to=[user.email],  # from_email defaults to DEFAULT_FROM_EMAIL
+        )
+        email.attach_alternative(html_body, "text/html")
+        email.send()
+
+        return Response(status=status.HTTP_200_OK)
+
+
+class PasswordResetConfirmView(APIView):
+    """Public - the uid+token pair from the emailed link IS the
+    authentication here, in place of a logged-in session."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        _blacklist_all_outstanding_tokens(user)
+        return Response(status=status.HTTP_200_OK)
 
 
 class MeView(APIView):
