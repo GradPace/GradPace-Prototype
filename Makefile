@@ -1,0 +1,43 @@
+.PHONY: help deploy deploy-backend deploy-frontend up down restart logs pytest clean
+
+# No docker-compose.yml/compose.yaml exists - only the explicit dev/prod files
+# below - so every docker compose call here must be pointed at one via -f.
+COMPOSE = docker compose -f docker-compose.prod.yml
+
+help: ## Show this help message
+	@echo 'Usage: make [target]'
+	@echo ''
+	@echo 'Available targets:'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+
+deploy: ## Pull latest images and deploy all services
+	$(COMPOSE) pull && \
+	$(COMPOSE) up -d && \
+	docker image prune -af
+
+deploy-frontend: ## Pull and deploy only the frontend
+	$(COMPOSE) pull frontend && \
+	$(COMPOSE) up -d frontend && \
+	docker image prune -af
+
+deploy-backend: ## Pull and deploy only the backend
+	$(COMPOSE) pull backend && \
+	$(COMPOSE) up -d backend && \
+	docker image prune -af
+
+down: ## Stop and remove services
+	$(COMPOSE) down
+
+restart: ## Restart services
+	$(COMPOSE) restart
+
+logs: ## View logs from services
+	$(COMPOSE) logs -f
+
+pytest: ## Run the backend test suite
+	cd backend && uv run pytest
+
+clean: ## Clean up Python cache and Docker resources
+	find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
+	find . -type f -name "*.pyc" -delete
+	docker system prune -af
