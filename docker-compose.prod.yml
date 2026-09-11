@@ -1,0 +1,66 @@
+name: GradPace
+
+services:
+  # Backend
+  backend:
+    image: ghcr.io/gradpace/gradpace-prototype/backend:latest
+    depends_on:
+      db:
+        condition: service_healthy
+      mail:
+        condition: service_started
+    env_file:
+      - .env.prod
+    environment:
+      - VIRTUAL_HOST=gradpace-api.steyaert.xyz
+      - VIRTUAL_PORT=8000
+    restart: always
+    init: true
+    networks:
+      - nginx-proxy
+      - gradpace_net
+
+  mail:
+    image: boky/postfix
+    restart: always
+    environment:
+      - ALLOWED_SENDER_DOMAINS=gradpace.steyaert.xyz
+      - DKIM_AUTOGENERATE=true
+      - MYNETWORKS=172.55.1.0/24 127.0.0.0/8
+    volumes:
+      - /srv/prototype/mail_dkim:/etc/opendkim/keys
+    networks:
+      - gradpace_net
+
+  db:
+    image: postgres:17
+    container_name: gradpace_db
+    # No expose/ports: api reaches db:5432 over gradpace_net. Nothing on the host.
+    # .env.prod must define POSTGRES_USER / POSTGRES_DB / POSTGRES_PASSWORD to
+    # match api's DATABASE_USERNAME / DATABASE_NAME / DATABASE_PASSWORD.
+    env_file:
+      - .env.prod
+    volumes:
+      - /srv/prototype/postgres_data:/var/lib/postgresql/data
+    restart: always
+    init: true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gradpace_net
+
+  # Frontend
+  
+
+networks:
+  gradpace_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.55.1.0/24
+          gateway: 172.55.1.1
+  nginx-proxy:
+    external: true

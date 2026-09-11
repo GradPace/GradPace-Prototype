@@ -1,0 +1,17 @@
+[project]
+name = "backend"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "django>=6.1.1",
+]
+
+[dependency-groups]
+dev = [
+    "python-dotenv>=1.2.3",
+]
+prod = [
+    "gunicorn>=26.2.0",
+    "psycopg>=3.3.5",
+    "whitenoise>=6.12.0",
+]

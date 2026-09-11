@@ -1,0 +1,15 @@
+import os
+
+
+def get_secret(secret_id, backup=None):
+    return os.getenv(secret_id, backup)
+
+
+if get_secret('PIPELINE') == 'production':
+    from .prod import *
+
+elif get_secret('PIPELINE') == 'test':
+    from .test import *
+
+else:
+    from .dev import *
