@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
-DEFAULT_PASSWORD = "correct-horse-battery-staple"
+DEFAULT_PASSWORD = "Zq7!fWbn2"  # satisfies AUTH_PASSWORD_VALIDATORS - see accounts/validators.py
 
 
 class UserFactory(factory.django.DjangoModelFactory):

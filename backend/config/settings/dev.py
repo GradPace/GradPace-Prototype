@@ -23,4 +23,7 @@ MAILERS = {
     },
 }
 
+# accounts.validators.PwnedPasswordValidator - skip the network call locally.
+PWNED_PASSWORDS_CHECK_ENABLED = False
+
 # CORS_ALLOW_ALL_ORIGINS = True

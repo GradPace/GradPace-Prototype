@@ -9,8 +9,10 @@ User = get_user_model()
 class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-    password_confirm = serializers.CharField(write_only=True)
+    # max_length caps hashing cost on an absurdly long input (DoS), not a
+    # security control on its own - see AUTH_PASSWORD_VALIDATORS for the rest.
+    password = serializers.CharField(write_only=True, max_length=64)
+    password_confirm = serializers.CharField(write_only=True, max_length=64)
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():

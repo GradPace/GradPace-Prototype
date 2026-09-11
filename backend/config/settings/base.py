@@ -65,10 +65,19 @@ PASSWORD_RESET_TIMEOUT = 60 * 10
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {"NAME": "accounts.validators.UppercaseValidator"},
+    {"NAME": "accounts.validators.NumberValidator"},
+    {"NAME": "accounts.validators.SpecialCharacterValidator"},
+    {"NAME": "accounts.validators.NoDictionaryWordValidator"},
+    {"NAME": "accounts.validators.NoRepeatedOrSequentialValidator"},
+    {"NAME": "accounts.validators.PwnedPasswordValidator"},
 ]
+
+# Have I Been Pwned check (accounts.validators.PwnedPasswordValidator) - off
+# in config/settings/test.py so the test suite never depends on network access.
+PWNED_PASSWORDS_CHECK_ENABLED = True
 
 
 # Internationalization

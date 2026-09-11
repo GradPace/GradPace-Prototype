@@ -5,7 +5,7 @@ from .factories import UserFactory
 
 User = get_user_model()
 
-PASSWORD = "correct-horse-battery-staple"
+PASSWORD = "Zq7!fWbn2"  # satisfies AUTH_PASSWORD_VALIDATORS - see accounts/validators.py
 
 
 @pytest.mark.django_db
@@ -67,14 +67,27 @@ def test_register_rejects_mismatched_passwords(client):
 
 
 @pytest.mark.django_db
-def test_register_rejects_a_weak_password(client):
+@pytest.mark.parametrize(
+    "password",
+    [
+        pytest.param("Ab1!ab1", id="too-short"),
+        pytest.param("str0ng!pass", id="no-uppercase"),
+        pytest.param("Strong!Pass", id="no-number"),
+        pytest.param("Str0ngPass", id="no-special-character"),
+        pytest.param("Password1!", id="dictionary-word"),
+        pytest.param("Passsss1!", id="repeated-characters"),
+        pytest.param("Abcd1234!", id="sequential-characters"),
+        pytest.param("password123", id="common-password"),
+    ],
+)
+def test_register_rejects_a_weak_password(client, password):
     response = client.post(
         "/api/auth/register/",
         {
             "username": "newuser",
             "email": "newuser@example.com",
-            "password": "12345678",
-            "password_confirm": "12345678",
+            "password": password,
+            "password_confirm": password,
         },
         content_type="application/json",
     )
