@@ -49,6 +49,25 @@ def test_register_rejects_duplicate_username(client):
 
 
 @pytest.mark.django_db
+def test_register_rejects_duplicate_email_regardless_of_case(client):
+    UserFactory(email="Taken@Example.com")
+
+    response = client.post(
+        "/api/auth/register/",
+        {
+            "username": "someone-else",
+            "email": "taken@example.com",
+            "password": PASSWORD,
+            "password_confirm": PASSWORD,
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert "email" in response.json()
+
+
+@pytest.mark.django_db
 def test_register_rejects_mismatched_passwords(client):
     response = client.post(
         "/api/auth/register/",

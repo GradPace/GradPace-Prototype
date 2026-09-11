@@ -36,7 +36,10 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
+        # iexact - must match PasswordResetRequestView's lookup, or two users
+        # differing only by email case (Foo@x.com / foo@x.com) could both
+        # register, and a reset request for either raises MultipleObjectsReturned.
+        if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("A user with that email already exists.")
         return value
 
@@ -125,3 +128,24 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user.set_password(self.validated_data["new_password"])
         user.save(update_fields=["password"])
         return user
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+
+# Response-only serializers, for drf-spectacular. RegisterView and MeView are
+# plain APIViews that build a dict by hand rather than serializing a model
+# instance, so there's nothing for the schema generator to introspect without
+# these - see the @extend_schema(responses=...) calls in accounts/views.py.
+
+
+class TokenPairSerializer(serializers.Serializer):
+    access = serializers.CharField(read_only=True)
+    refresh = serializers.CharField(read_only=True)
+
+
+class UserSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    username = serializers.CharField(read_only=True)
+    email = serializers.EmailField(read_only=True)

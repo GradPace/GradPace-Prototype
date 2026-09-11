@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
     "core",
     "accounts",
 ]
@@ -114,6 +115,17 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# drf-spectacular - generates the OpenAPI schema from the views/serializers
+# above (config/urls.py: /api/schema/ raw schema, /api/docs/ Swagger UI).
+# https://drf-spectacular.readthedocs.io/en/latest/settings.html
+SPECTACULAR_SETTINGS = {
+    "TITLE": "GradPace API",
+    "DESCRIPTION": "Backend API for GradPace - Team Copper.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 
 # djangorestframework-simplejwt

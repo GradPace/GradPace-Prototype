@@ -5,6 +5,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,10 +14,13 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import (
+    LogoutSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    TokenPairSerializer,
+    UserSerializer,
 )
 
 User = get_user_model()
@@ -35,6 +39,7 @@ class RegisterView(APIView):
 
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(request=RegisterSerializer, responses={201: TokenPairSerializer})
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -57,16 +62,13 @@ class LogoutView(APIView):
     short window - ACCESS_TOKEN_LIFETIME - not worth adding a second
     blacklist check on every authenticated request to close)."""
 
+    @extend_schema(request=LogoutSerializer, responses={205: None})
     def post(self, request):
-        refresh_token = request.data.get("refresh")
-        if not refresh_token:
-            return Response(
-                {"refresh": "This field is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        serializer = LogoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
         try:
-            RefreshToken(refresh_token).blacklist()
+            RefreshToken(serializer.validated_data["refresh"]).blacklist()
         except TokenError:
             return Response(
                 {"refresh": "Invalid or expired token."},
@@ -81,6 +83,7 @@ class PasswordChangeView(APIView):
     password. Also blacklists every other outstanding refresh token for the
     user: a password change should force re-login on every other session."""
 
+    @extend_schema(request=PasswordChangeSerializer, responses={204: None})
     def post(self, request):
         serializer = PasswordChangeSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -96,6 +99,7 @@ class PasswordResetRequestView(APIView):
 
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(request=PasswordResetRequestSerializer, responses={200: None})
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -132,6 +136,7 @@ class PasswordResetConfirmView(APIView):
 
     permission_classes = [permissions.AllowAny]
 
+    @extend_schema(request=PasswordResetConfirmSerializer, responses={200: None})
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -143,6 +148,7 @@ class PasswordResetConfirmView(APIView):
 class MeView(APIView):
     """Protected - proves a simplejwt access token authenticates correctly."""
 
+    @extend_schema(responses={200: UserSerializer})
     def get(self, request):
         return Response(
             {
