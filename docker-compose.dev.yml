@@ -1,0 +1,29 @@
+name: gradpace-dev
+
+services:
+  # Backend - Django dev server with live reload.
+  # Runs straight from the uv image (not backend/Dockerfile, which is the lean
+  # prod build with only the `prod` dependency group). PIPELINE is unset, so
+  # config/settings/__init__.py loads dev.py: sqlite, DEBUG=True, console email.
+  backend:
+    image: ghcr.io/astral-sh/uv:python3.14-alpine
+    working_dir: /app
+    command: >
+      sh -c "uv sync &&
+             uv run manage.py migrate &&
+             uv run manage.py runserver 0.0.0.0:8000"
+    environment:
+      - UV_PROJECT_ENVIRONMENT=/app/.venv
+    volumes:
+      - ./backend:/app            # live code - runserver reloads on save
+      - backend_venv:/app/.venv   # container's Linux venv, kept off the host
+    ports:
+      - "8000:8000"
+    tty: true
+
+volumes:
+  backend_venv:
+
+# No db / mail services: dev.py uses sqlite and the console email backend.
+# To develop against Postgres instead, point dev.py's DATABASES at a `db`
+# service here and add one (see docker-compose.prod.yml for the shape).

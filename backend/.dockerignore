@@ -1,0 +1,26 @@
+# Build the image from pyproject.toml + uv.lock, not a local venv.
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Local dev database - prod uses Postgres.
+db.sqlite3
+db.sqlite3-journal
+
+# Env files - prod values come from the container's environment.
+.env
+.env.*
+
+# VCS / tooling / editor
+.git/
+.gitignore
+.dockerignore
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docs
+*.md
