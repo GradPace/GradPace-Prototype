@@ -17,7 +17,8 @@ services:
     restart: always
     init: true
     healthcheck:
-      test: []
+      # No curl/wget in this Alpine image - use the venv's own python instead.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/core/healthcheck/', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 5
