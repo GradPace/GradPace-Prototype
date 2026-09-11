@@ -16,3 +16,7 @@
 * JJ Wile - jwile012@odu.edu - GitHub: jwile012
 * Nate Balcha - Email: nbalc001@odu.edu; Discord: _nate14, GitHub: Natebalcha
 
+## License
+
+All rights reserved - see [`LICENSE`](./LICENSE). Ownership among team
+members is covered in [`TEAM_AGREEMENT.md`](./TEAM_AGREEMENT.md).
