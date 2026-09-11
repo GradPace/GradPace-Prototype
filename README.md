@@ -2,7 +2,8 @@
 
 # Team Copper - GradPace
 
-<!-- GH Actions Badges -->
+[![Build and Push Backend to GHCR](https://github.com/GradPace/GradPace-Prototype/actions/workflows/backend-build-and-push.yml/badge.svg)](https://github.com/GradPace/GradPace-Prototype/actions/workflows/backend-build-and-push.yml)
+[![Deploy to Production - Backend](https://github.com/GradPace/GradPace-Prototype/actions/workflows/backend-deploy.yml/badge.svg)](https://github.com/GradPace/GradPace-Prototype/actions/workflows/backend-deploy.yml)
 
 </div>
 
