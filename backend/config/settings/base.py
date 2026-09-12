@@ -6,6 +6,7 @@ and override what they need. ``config/settings/__init__.py`` picks which one to
 load based on the ``PIPELINE`` env var.
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 # backend/config/settings/base.py -> backend/
@@ -21,6 +22,12 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
+    "core",
+    "accounts",
 ]
 
 MIDDLEWARE = [
@@ -59,10 +66,19 @@ PASSWORD_RESET_TIMEOUT = 60 * 10
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 8}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    {"NAME": "accounts.validators.UppercaseValidator"},
+    {"NAME": "accounts.validators.NumberValidator"},
+    {"NAME": "accounts.validators.SpecialCharacterValidator"},
+    {"NAME": "accounts.validators.NoDictionaryWordValidator"},
+    {"NAME": "accounts.validators.NoRepeatedOrSequentialValidator"},
+    {"NAME": "accounts.validators.PwnedPasswordValidator"},
 ]
+
+# Have I Been Pwned check (accounts.validators.PwnedPasswordValidator) - off
+# in config/settings/test.py so the test suite never depends on network access.
+PWNED_PASSWORDS_CHECK_ENABLED = True
 
 
 # Internationalization
@@ -88,3 +104,36 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # https://docs.djangoproject.com/en/6.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+# Django REST Framework
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+# drf-spectacular - generates the OpenAPI schema from the views/serializers
+# above (config/urls.py: /api/schema/ raw schema, /api/docs/ Swagger UI).
+# https://drf-spectacular.readthedocs.io/en/latest/settings.html
+SPECTACULAR_SETTINGS = {
+    "TITLE": "GradPace API",
+    "DESCRIPTION": "Backend API for GradPace - Team Copper.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
+# djangorestframework-simplejwt
+# https://django-rest-framework-simplejwt.readthedocs.io/en/latest/settings.html
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}

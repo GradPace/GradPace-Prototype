@@ -23,4 +23,11 @@ MAILERS = {
     },
 }
 
+# accounts.validators.PwnedPasswordValidator - skip the network call locally.
+PWNED_PASSWORDS_CHECK_ENABLED = False
+
+# Where accounts.views.PasswordResetRequestView points the reset link. The
+# Node frontend isn't set up yet - this is its eventual local dev URL.
+FRONTEND_URL = "http://localhost:3000"
+
 # CORS_ALLOW_ALL_ORIGINS = True
