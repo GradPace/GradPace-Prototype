@@ -36,7 +36,7 @@ services:
       # for team mailboxes and defaults to the "mail" selector - a different
       # selector here keeps this relay's DKIM key from colliding with it.
       - DKIM_SELECTOR=relay
-      - MYNETWORKS=172.55.1.0/24 127.0.0.0/8
+      - MYNETWORKS=172.55.2.0/24 127.0.0.0/8
     volumes:
       - /srv/prototype/mail_dkim:/etc/opendkim/keys
     networks:
@@ -73,11 +73,14 @@ services:
   
 
 networks:
+  # 172.55.1.0/24 collides with steyaertsite_steyaertsite_net on this host -
+  # check `docker network inspect $(docker network ls -q) --format '{{.Name}}: {{range .IPAM.Config}}{{.Subnet}}{{end}}'`
+  # before reusing/bumping this if it ever needs to change again.
   gradpace_net:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.55.1.0/24
-          gateway: 172.55.1.1
+        - subnet: 172.55.2.0/24
+          gateway: 172.55.2.1
   nginx-proxy:
     external: true
