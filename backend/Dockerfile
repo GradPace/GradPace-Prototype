@@ -14,7 +14,10 @@ WORKDIR /app
 
 # Resolve deps first so this layer is cached until the lockfile changes.
 # Main deps + the "prod" group (gunicorn, psycopg); dev group excluded.
-# Plain psycopg is pure-Python, so no compiler/-dev packages are needed here.
+# psycopg[binary]: the pure-Python binding locates libpq via ctypes'
+# find_library(), which needs ldconfig - absent on Alpine/musl, so it can't
+# find libpq even when installed via apk. The binary wheel bundles libpq
+# statically and sidesteps the lookup entirely.
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --no-default-groups --group prod
@@ -29,8 +32,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DJANGO_SETTINGS_MODULE=config.settings \
     PIPELINE=production
 
-# libpq: loaded by psycopg at runtime. netcat: DB wait in the entrypoint.
-RUN apk add --no-cache libpq netcat-openbsd
+# netcat: DB wait in the entrypoint. libpq no longer needed here - psycopg's
+# binary wheel (see builder stage) bundles its own.
+RUN apk add --no-cache netcat-openbsd
 
 RUN adduser -D appuser
 
