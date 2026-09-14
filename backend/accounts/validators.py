@@ -12,46 +12,46 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
-SPECIAL_CHARACTERS = "!@#$%^&*"
+SPECIAL_CHARACTERS = '!@#$%^&*'
 RUN_LENGTH = 4  # reject 4+ repeated or sequential characters in a row
 
 
 class UppercaseValidator:
     def validate(self, password, user=None):
-        if not re.search(r"[A-Z]", password):
+        if not re.search(r'[A-Z]', password):
             raise ValidationError(
-                _("This password must contain at least 1 uppercase letter."),
-                code="password_no_upper",
+                _('This password must contain at least 1 uppercase letter.'),
+                code='password_no_upper',
             )
 
     def get_help_text(self):
-        return _("Your password must contain at least 1 uppercase letter.")
+        return _('Your password must contain at least 1 uppercase letter.')
 
 
 class NumberValidator:
     def validate(self, password, user=None):
-        if not re.search(r"\d", password):
+        if not re.search(r'\d', password):
             raise ValidationError(
-                _("This password must contain at least 1 number."),
-                code="password_no_number",
+                _('This password must contain at least 1 number.'),
+                code='password_no_number',
             )
 
     def get_help_text(self):
-        return _("Your password must contain at least 1 number.")
+        return _('Your password must contain at least 1 number.')
 
 
 class SpecialCharacterValidator:
     def validate(self, password, user=None):
         if not any(char in SPECIAL_CHARACTERS for char in password):
             raise ValidationError(
-                _("This password must contain at least 1 special character (%(chars)s)."),
-                code="password_no_special",
-                params={"chars": SPECIAL_CHARACTERS},
+                _('This password must contain at least 1 special character (%(chars)s).'),
+                code='password_no_special',
+                params={'chars': SPECIAL_CHARACTERS},
             )
 
     def get_help_text(self):
-        return _("Your password must contain at least 1 of: %(chars)s") % {
-            "chars": SPECIAL_CHARACTERS
+        return _('Your password must contain at least 1 of: %(chars)s') % {
+            'chars': SPECIAL_CHARACTERS
         }
 
 
@@ -62,7 +62,7 @@ def _dictionary_words():
     # every time someone registers or changes their password).
     from english_words import get_english_words_set
 
-    return get_english_words_set(["web2"], lower=True)
+    return get_english_words_set(['web2'], lower=True)
 
 
 class NoDictionaryWordValidator:
@@ -70,11 +70,11 @@ class NoDictionaryWordValidator:
     a single common English dictionary word (e.g. "Password1!")."""
 
     def validate(self, password, user=None):
-        letters_only = re.sub(r"[^a-zA-Z]", "", password).lower()
+        letters_only = re.sub(r'[^a-zA-Z]', '', password).lower()
         if letters_only in _dictionary_words():
             raise ValidationError(
                 _("This password can't be a common dictionary word."),
-                code="password_dictionary_word",
+                code='password_dictionary_word',
             )
 
     def get_help_text(self):
@@ -90,8 +90,11 @@ class NoRepeatedOrSequentialValidator:
         lowered = password.lower()
         if self._has_repeated_run(lowered) or self._has_sequential_run(lowered):
             raise ValidationError(
-                _('This password can\'t contain repeated or sequential characters (e.g. "aaaa" or "abcd").'),
-                code="password_repeated_or_sequential",
+                _(
+                    "This password can't contain repeated or sequential "
+                    'characters (e.g. "aaaa" or "abcd").'
+                ),
+                code='password_repeated_or_sequential',
             )
 
     def get_help_text(self):
@@ -108,7 +111,7 @@ class NoRepeatedOrSequentialValidator:
     def _has_sequential_run(password):
         for i in range(len(password) - RUN_LENGTH + 1):
             codes = [ord(c) for c in password[i : i + RUN_LENGTH]]
-            deltas = [b - a for a, b in zip(codes, codes[1:])]
+            deltas = [b - a for a, b in zip(codes, codes[1:], strict=False)]
             if all(d == 1 for d in deltas) or all(d == -1 for d in deltas):
                 return True
         return False
@@ -122,27 +125,30 @@ class PwnedPasswordValidator:
     on a third-party outage."""
 
     def validate(self, password, user=None):
-        if not getattr(settings, "PWNED_PASSWORDS_CHECK_ENABLED", True):
+        if not getattr(settings, 'PWNED_PASSWORDS_CHECK_ENABLED', True):
             return
 
-        sha1 = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
+        sha1 = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
         prefix, suffix = sha1[:5], sha1[5:]
 
         try:
             request = urllib.request.Request(
-                f"https://api.pwnedpasswords.com/range/{prefix}",
-                headers={"User-Agent": "gradpace-backend"},
+                f'https://api.pwnedpasswords.com/range/{prefix}',
+                headers={'User-Agent': 'gradpace-backend'},
             )
             with urllib.request.urlopen(request, timeout=3) as response:
-                body = response.read().decode("utf-8")
-        except (urllib.error.URLError, TimeoutError, OSError):
+                body = response.read().decode('utf-8')
+        except urllib.error.URLError, TimeoutError, OSError:
             return
 
-        breached_suffixes = {line.split(":")[0] for line in body.splitlines()}
+        breached_suffixes = {line.split(':')[0] for line in body.splitlines()}
         if suffix in breached_suffixes:
             raise ValidationError(
-                _("This password has appeared in a known data breach. Please choose a different one."),
-                code="password_pwned",
+                _(
+                    'This password has appeared in a known data breach. '
+                    'Please choose a different one.'
+                ),
+                code='password_pwned',
             )
 
     def get_help_text(self):
