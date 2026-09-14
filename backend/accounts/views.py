@@ -13,12 +13,16 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .models import StudentProfile
 from .serializers import (
     LogoutSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    StudentProfileCreateSerializer,
+    StudentProfileSerializer,
+    StudentProfileUpdateSerializer,
     TokenPairSerializer,
     UserSerializer,
 )
@@ -157,3 +161,47 @@ class MeView(APIView):
                 "email": request.user.email,
             }
         )
+
+
+class ProfileView(APIView):
+    """Authenticated (default IsAuthenticated) - the caller's own
+    StudentProfile. One per user: POST creates it (404s on GET/PATCH until
+    then), PATCH partially updates the mutable fields."""
+
+    @extend_schema(responses={200: StudentProfileSerializer})
+    def get(self, request):
+        """Fetch the caller's own student profile. 404 if they haven't
+        created one yet (POST to this same URL first)."""
+        try:
+            profile = request.user.student_profile
+        except StudentProfile.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(StudentProfileSerializer(profile).data)
+
+    @extend_schema(request=StudentProfileCreateSerializer, responses={201: StudentProfileSerializer})
+    def post(self, request):
+        """Create the caller's student profile. One-time only - 400s if a
+        profile already exists for this user. Sets student_id, which is
+        permanent after this (see PATCH)."""
+        if StudentProfile.objects.filter(user=request.user).exists():
+            return Response(
+                {"detail": "Profile already exists."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        serializer = StudentProfileCreateSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.save()
+        return Response(StudentProfileSerializer(profile).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(request=StudentProfileUpdateSerializer, responses={200: StudentProfileSerializer})
+    def patch(self, request):
+        """Partially update the caller's student profile (name, major, minor,
+        graduation_year). student_id is not editable here - 404 if no profile
+        exists yet."""
+        try:
+            profile = request.user.student_profile
+        except StudentProfile.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        serializer = StudentProfileUpdateSerializer(profile, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.save()
+        return Response(StudentProfileSerializer(profile).data)
