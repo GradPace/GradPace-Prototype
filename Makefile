@@ -1,4 +1,4 @@
-.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check pytest test docs clean
+.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check ruff-lint ruff-format ruff-format-check pytest test docs clean
 
 # No docker-compose.yml/compose.yaml exists - only the explicit dev/prod files
 # below - so every docker compose call here must be pointed at one via -f.
@@ -40,10 +40,19 @@ logs: ## View logs from services
 check: ## Run Django's system check
 	cd backend && uv run manage.py check
 
+ruff-lint: ## Run ruff's linter over the backend
+	cd backend && uv run ruff check .
+
+ruff-format: ## Reformat the backend with ruff
+	cd backend && uv run ruff format .
+
+ruff-format-check: ## Check backend formatting without changing files
+	cd backend && uv run ruff format --check .
+
 pytest: ## Run the backend test suite
 	cd backend && uv run pytest
 
-test: check pytest ## Run everything: system check + test suite
+test: check ruff-lint ruff-format-check pytest ## Run everything: system check + lint + format check + test suite
 
 docs: ## Build the Sphinx docs (backend/docs/_build/html)
 	cd backend && uv run --group docs sphinx-build -b html docs docs/_build/html

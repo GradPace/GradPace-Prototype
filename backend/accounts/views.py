@@ -13,12 +13,16 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .models import StudentProfile
 from .serializers import (
     LogoutSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    StudentProfileCreateSerializer,
+    StudentProfileSerializer,
+    StudentProfileUpdateSerializer,
     TokenPairSerializer,
     UserSerializer,
 )
@@ -47,7 +51,7 @@ class RegisterView(APIView):
 
         refresh = RefreshToken.for_user(user)
         return Response(
-            {"access": str(refresh.access_token), "refresh": str(refresh)},
+            {'access': str(refresh.access_token), 'refresh': str(refresh)},
             status=status.HTTP_201_CREATED,
         )
 
@@ -68,10 +72,10 @@ class LogoutView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            RefreshToken(serializer.validated_data["refresh"]).blacklist()
+            RefreshToken(serializer.validated_data['refresh']).blacklist()
         except TokenError:
             return Response(
-                {"refresh": "Invalid or expired token."},
+                {'refresh': 'Invalid or expired token.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -85,7 +89,7 @@ class PasswordChangeView(APIView):
 
     @extend_schema(request=PasswordChangeSerializer, responses={204: None})
     def post(self, request):
-        serializer = PasswordChangeSerializer(data=request.data, context={"request": request})
+        serializer = PasswordChangeSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         _blacklist_all_outstanding_tokens(user)
@@ -105,26 +109,26 @@ class PasswordResetRequestView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            user = User.objects.get(email__iexact=serializer.validated_data["email"])
+            user = User.objects.get(email__iexact=serializer.validated_data['email'])
         except User.DoesNotExist:
             return Response(status=status.HTTP_200_OK)
 
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
-        reset_url = f"{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}"
-        context = {"reset_url": reset_url}
+        reset_url = f'{settings.FRONTEND_URL}/reset-password?uid={uid}&token={token}'
+        context = {'reset_url': reset_url}
 
         # Plain-text part first (some clients/spam filters want it) with the
         # HTML version attached as an alternative, not HTML-only.
-        text_body = render_to_string("accounts/emails/password_reset.txt", context)
-        html_body = render_to_string("accounts/emails/password_reset.html", context)
+        text_body = render_to_string('accounts/emails/password_reset.txt', context)
+        html_body = render_to_string('accounts/emails/password_reset.html', context)
 
         email = EmailMultiAlternatives(
-            subject="Reset your GradPace password",
+            subject='Reset your GradPace password',
             body=text_body,
             to=[user.email],  # from_email defaults to DEFAULT_FROM_EMAIL
         )
-        email.attach_alternative(html_body, "text/html")
+        email.attach_alternative(html_body, 'text/html')
         email.send()
 
         return Response(status=status.HTTP_200_OK)
@@ -150,10 +154,52 @@ class MeView(APIView):
 
     @extend_schema(responses={200: UserSerializer})
     def get(self, request):
-        return Response(
-            {
-                "id": request.user.pk,
-                "username": request.user.username,
-                "email": request.user.email,
-            }
-        )
+        return Response(UserSerializer(request.user).data)
+
+
+class ProfileView(APIView):
+    """Authenticated (default IsAuthenticated) - the caller's own
+    StudentProfile. One per user: POST creates it (404s on GET/PATCH until
+    then), PATCH partially updates the mutable fields."""
+
+    @extend_schema(responses={200: StudentProfileSerializer})
+    def get(self, request):
+        """Fetch the caller's own student profile. 404 if they haven't
+        created one yet (POST to this same URL first)."""
+        try:
+            profile = request.user.student_profile
+        except StudentProfile.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(StudentProfileSerializer(profile).data)
+
+    @extend_schema(
+        request=StudentProfileCreateSerializer, responses={201: StudentProfileSerializer}
+    )
+    def post(self, request):
+        """Create the caller's student profile. One-time only - 400s if a
+        profile already exists for this user. Sets student_id, which is
+        permanent after this (see PATCH)."""
+        if StudentProfile.objects.filter(user=request.user).exists():
+            return Response(
+                {'detail': 'Profile already exists.'}, status=status.HTTP_400_BAD_REQUEST
+            )
+        serializer = StudentProfileCreateSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.save()
+        return Response(StudentProfileSerializer(profile).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=StudentProfileUpdateSerializer, responses={200: StudentProfileSerializer}
+    )
+    def patch(self, request):
+        """Partially update the caller's student profile (name, major, uni,
+        location, graduated). student_id is not editable here - 404 if no
+        profile exists yet."""
+        try:
+            profile = request.user.student_profile
+        except StudentProfile.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        serializer = StudentProfileUpdateSerializer(profile, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        profile = serializer.save()
+        return Response(StudentProfileSerializer(profile).data)

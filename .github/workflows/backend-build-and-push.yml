@@ -36,8 +36,8 @@ jobs:
         working-directory: backend
         run: uv sync --locked
 
-      - name: Run test suite
-        run: make pytest
+      - name: Run checks, lint, and test suite
+        run: make test
 
       - name: Prune uv cache
         # Runs even if tests fail. This is a persistent self-hosted box, so
