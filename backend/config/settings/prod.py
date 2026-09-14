@@ -11,6 +11,11 @@ DEBUG = False
 raw_hosts = get_secret('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = [host.strip() for host in raw_hosts.split(',') if host.strip()]
 
+# docker-compose.prod.yml's healthcheck hits localhost:8000 from inside the
+# container - only reachable there, never from the internet, so allowing it
+# unconditionally doesn't widen what's actually exposed.
+ALLOWED_HOSTS.append('localhost')
+
 
 # Static files - serve the staff-only Django admin's assets straight from
 # gunicorn via WhiteNoise (compressed + hashed). The API itself serves none.
