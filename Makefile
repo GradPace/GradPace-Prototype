@@ -1,4 +1,4 @@
-.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check ruff-lint ruff-format ruff-format-check pytest lint-frontend typecheck-frontend build-frontend test-frontend test docs clean
+.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend test docs clean
 
 # No docker-compose.yml/compose.yaml exists - only the explicit dev/prod files
 # below - so every docker compose call here must be pointed at one via -f.
@@ -49,6 +49,8 @@ ruff-format-check: ## Check backend formatting without changing files
 pytest: ## Run the backend test suite
 	cd backend && uv run pytest
 
+test-backend: check ruff-lint ruff-format-check pytest ## Run everything for the backend: check + lint + format check + tests
+
 lint-frontend: ## Run eslint over the frontend
 	cd frontend && pnpm lint
 
@@ -62,7 +64,10 @@ build-frontend: ## Build the frontend for production (writes frontend/dist)
 # alongside lint/typecheck.
 test-frontend: lint-frontend typecheck-frontend ## Run everything for the frontend: lint + typecheck
 
-test: check ruff-lint ruff-format-check pytest test-frontend ## Run everything: backend checks/lint/tests + frontend lint/typecheck
+# Local convenience only - runs both toolchains, so it needs uv AND
+# node/pnpm available. CI jobs call test-backend / test-frontend separately
+# since each runner only sets up the one toolchain it needs.
+test: test-backend test-frontend ## Run everything: backend + frontend checks (needs both toolchains)
 
 docs: ## Build the Sphinx docs (backend/docs/_build/html)
 	cd backend && uv run --group docs sphinx-build -b html docs docs/_build/html
