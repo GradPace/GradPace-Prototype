@@ -22,3 +22,21 @@ updates:
       time: "10:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 20
+
+  - package-ecosystem: "npm" # Covers pnpm too - detected via pnpm-lock.yaml
+    directory: "frontend/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 20
+
+  - package-ecosystem: "docker" # See documentation for possible values
+    directory: "frontend/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 20
