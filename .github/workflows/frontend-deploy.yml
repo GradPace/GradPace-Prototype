@@ -1,0 +1,45 @@
+name: Deploy to Production - Frontend
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Build and Push Frontend to GHCR"]
+    types:
+      - completed
+    branches:
+      - main
+
+concurrency:
+  # Shared with backend-deploy.yml - both `make deploy-*` targets act on the
+  # same docker-compose project/host, so serialize rather than race them.
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    # Creates a GitHub Deployment for this run - the "GitHub for Jira" app
+    # picks these up automatically and shows them on linked issues (e.g.
+    # GP-29) under Deployments, so long as the commit/branch/PR references
+    # the issue key.
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      # gradpace-prototype/frontend is a private GHCR package - `docker
+      # compose pull` needs to be authenticated first. Uses this run's own
+      # token (packages: read above), not a long-lived credential on the host.
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy to production
+        run: |
+          cd /srv/prototype
+          make deploy-frontend

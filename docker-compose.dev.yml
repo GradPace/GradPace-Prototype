@@ -21,8 +21,26 @@ services:
       - "8000:8000"
     tty: true
 
+  # Frontend - Vite dev server with HMR.
+  # Runs straight from a node image (not frontend/Dockerfile, which is the
+  # lean prod build serving a static bundle via nginx).
+  frontend:
+    image: node:24-alpine
+    working_dir: /app
+    command: >
+      sh -c "corepack enable &&
+             pnpm install &&
+             pnpm dev --host"
+    volumes:
+      - ./frontend:/app                           # live code - Vite HMR reloads on save
+      - frontend_node_modules:/app/node_modules   # container's Linux modules, kept off the host
+    ports:
+      - "5173:5173"
+    tty: true
+
 volumes:
   backend_venv:
+  frontend_node_modules:
 
 # No db / mail services: dev.py uses sqlite and the console email backend.
 # To develop against Postgres instead, point dev.py's DATABASES at a `db`

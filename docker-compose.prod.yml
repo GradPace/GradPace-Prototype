@@ -68,9 +68,19 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    environment:
+      - VIRTUAL_HOST=gradpace.steyaert.xyz
+      - VIRTUAL_PORT=8080
+    restart: always
+    init: true
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
+      - nginx-proxy
       - gradpace_net
-  
 
 networks:
   # 172.55.1.0/24 collides with steyaertsite_steyaertsite_net on this host -
