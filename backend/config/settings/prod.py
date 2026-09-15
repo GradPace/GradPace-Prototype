@@ -55,6 +55,11 @@ DATABASES = {
 # Security - behind an HTTPS-terminating reverse proxy.
 
 SECURE_SSL_REDIRECT = True
+# The healthcheck (docker-compose.prod.yml) hits localhost:8000 over plain
+# HTTP from inside the container, where nothing terminates TLS - without
+# this it 301s to https, which then fails to connect, so Docker sees it as
+# unhealthy even though the app is fine.
+SECURE_REDIRECT_EXEMPT = [r'^core/healthcheck/$']
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 60 * 60 * 24 * 365
