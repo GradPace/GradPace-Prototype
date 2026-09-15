@@ -4,6 +4,10 @@
 
 [![Build and Push Backend to GHCR](https://github.com/GradPace/GradPace-Prototype/actions/workflows/backend-build-and-push.yml/badge.svg)](https://github.com/GradPace/GradPace-Prototype/actions/workflows/backend-build-and-push.yml)
 [![Deploy to Production - Backend](https://github.com/GradPace/GradPace-Prototype/actions/workflows/backend-deploy.yml/badge.svg)](https://github.com/GradPace/GradPace-Prototype/actions/workflows/backend-deploy.yml)
+[![Build and Push Frontend to GHCR](https://github.com/GradPace/GradPace-Prototype/actions/workflows/frontend-build-and-push.yml/badge.svg)](https://github.com/GradPace/GradPace-Prototype/actions/workflows/frontend-build-and-push.yml)
+[![Deploy to Production - Frontend](https://github.com/GradPace/GradPace-Prototype/actions/workflows/frontend-deploy.yml/badge.svg)](https://github.com/GradPace/GradPace-Prototype/actions/workflows/frontend-deploy.yml)
+
+[![pnpm latest version](https://img.shields.io/npm/v/pnpm.svg?label=latest)](https://github.com/pnpm/pnpm/releases/latest)
 
 </div>
 

@@ -1,4 +1,4 @@
-.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check ruff-lint ruff-format ruff-format-check pytest test docs clean
+.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check ruff-lint ruff-format ruff-format-check pytest lint-frontend typecheck-frontend build-frontend test-frontend test docs clean
 
 # No docker-compose.yml/compose.yaml exists - only the explicit dev/prod files
 # below - so every docker compose call here must be pointed at one via -f.
@@ -34,9 +34,6 @@ restart: ## Restart services
 logs: ## View logs from services
 	$(COMPOSE) logs -f
 
-# TODO: once frontend/ has its own test/lint setup, check/pytest/test should
-# also run it (e.g. a check-frontend / test-frontend target folded into these).
-
 check: ## Run Django's system check
 	cd backend && uv run manage.py check
 
@@ -52,7 +49,20 @@ ruff-format-check: ## Check backend formatting without changing files
 pytest: ## Run the backend test suite
 	cd backend && uv run pytest
 
-test: check ruff-lint ruff-format-check pytest ## Run everything: system check + lint + format check + test suite
+lint-frontend: ## Run eslint over the frontend
+	cd frontend && pnpm lint
+
+typecheck-frontend: ## Type-check the frontend (no build output)
+	cd frontend && pnpm typecheck
+
+build-frontend: ## Build the frontend for production (writes frontend/dist)
+	cd frontend && pnpm build
+
+# TODO: no frontend test runner yet - once one exists, add its command here
+# alongside lint/typecheck.
+test-frontend: lint-frontend typecheck-frontend ## Run everything for the frontend: lint + typecheck
+
+test: check ruff-lint ruff-format-check pytest test-frontend ## Run everything: backend checks/lint/tests + frontend lint/typecheck
 
 docs: ## Build the Sphinx docs (backend/docs/_build/html)
 	cd backend && uv run --group docs sphinx-build -b html docs docs/_build/html
