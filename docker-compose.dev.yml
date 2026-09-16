@@ -27,6 +27,10 @@ services:
   frontend:
     image: node:24-alpine
     working_dir: /app
+    environment:
+      # Without this, corepack's first-run download prompt waits on stdin,
+      # which `docker compose up -d` never attaches - it just hangs forever.
+      - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
     command: >
       sh -c "corepack enable &&
              pnpm install &&
