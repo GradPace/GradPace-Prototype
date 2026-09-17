@@ -1,4 +1,6 @@
 import heroIllustration from "../../assets/hero-illustration.png";
+import { Link } from "react-router-dom";
+
 /*
  * Homepage hero - headline, subhead, CTAs, and a graphic placeholder
  */
@@ -22,18 +24,18 @@ export default function Hero() {
         </p>
 
         <div className="mt-8 flex items-center gap-6">
-          <a
-            href="/signup"
-            className="rounded-md bg-pink px-6 py-3 text-sm font-medium text-ink transition-colors hover:bg-pink/90"
+          <Link
+            to="/signup"
+            className="rounded-md bg-blue px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue/90"
           >
             Get started
-          </a>
-          <a
-            href="/login"
-            className="text-md text-slate transition-colors hover:text-ink"
+          </Link>
+          <Link
+            to="/login"
+            className="text-sm text-slate transition-colors hover:text-pink"
           >
             Already have an account? Sign in
-          </a>
+          </Link>
         </div>
       </div>
       {/* This is where the hero image is located */}

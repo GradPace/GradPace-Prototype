@@ -9,7 +9,7 @@ import Navbar from "../../components/Navbar/Navbar";
  */
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-paper font-sans text-ink">
+    <div className="min-h-screen bg-canvas font-sans text-ink">
       <Navbar />
       <Hero />
     </div>

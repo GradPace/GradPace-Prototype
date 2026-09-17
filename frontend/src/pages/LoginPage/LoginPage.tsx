@@ -7,12 +7,12 @@ import { Link } from "react-router-dom";
  */
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-paper font-sans text-ink">
+    <div className="min-h-screen bg-canvas font-sans text-ink">
       <Navbar />
       {/* main card that control its own width */}
       <main className="mx-auto flex max-w-6xl justify-center px-8 py-24">
-        <div className="w-full max-w-md rounded-2xl border border-line bg-white p-10 shadow-lg">
-          <h1 className="font-serif text-4xl font-medium text-ink">Log in</h1>
+        <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-10">
+          <h1 className="text-4xl font-medium text-ink">Log in</h1>
           <p className="mt-3 text-sm text-slate">
             New to GradPace?{" "}
             <Link
@@ -30,7 +30,7 @@ export default function LoginPage() {
                 type="email"
                 name="email"
                 required
-                className="rounded-md border border-line px-4 py-3 text-base text-ink outline-none focus:border-ink"
+                className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
               />
             </label>
 
@@ -40,13 +40,13 @@ export default function LoginPage() {
                 type="password"
                 name="password"
                 required
-                className="rounded-md border border-line px-4 py-3 text-base text-ink outline-none focus:border-ink"
+                className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
               />
             </label>
 
             <button
               type="submit"
-              className="mt-2 w-full rounded-full bg-pink py-3 text-sm font-semibold text-ink transition-colors hover:bg-pink/90"
+              className="mt-2 w-full rounded-full bg-blue py-3 text-sm font-semibold text-white transition-colors hover:bg-blue/90"
             >
               Log in
             </button>
