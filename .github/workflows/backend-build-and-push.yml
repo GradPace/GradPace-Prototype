@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - 'backend/**'
+      # Docs-only changes (e.g. the schema diagram) shouldn't rebuild/push/
+      # redeploy the image - nothing the container runs actually changed.
+      - '!backend/docs/**'
+
   workflow_dispatch:
 
 env:
