@@ -2,15 +2,16 @@
 
 /*
  * this is the global tailwind css for the front end. 
- * rest of styling is done in line at each tsx file
+ * the rest of styling is done in line at each tsx file
  */
 @theme {
-  --color-ink: #151a30;
-  --color-paper: #f4f5f7;
-  --color-pink: #db6a95;
-  --color-slate: #4b5262;
-  --color-line: #dadde3;
+  --color-canvas: #212529;
+  --color-surface: #2b2e33;
+  --color-ink: #dee2e6;
+  --color-slate: #adb5bd;
+  --color-line: #3a3f45;
+  --color-pink: #f06292;
+  --color-blue: #0d6efd;
 
-  --font-serif: "Fraunces", serif;
-  --font-sans: "IBM Plex Sans", sans-serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
