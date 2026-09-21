@@ -6,9 +6,13 @@ export default function Navbar() {
     <header className="bg-canvas">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-8 py-6">
         {/*This is the log for now */}
-        <a href="/" className="font-serif text-xl font-medium text-ink">
+        {/* <a href="/" className="font-serif text-xl font-medium text-ink">
           GradPace
-        </a>
+        </a> */}
+        <Link to="/" className="text-xl font-bold">
+          <span className="text-blue">Grad</span>
+          <span className="text-pink">Pace</span>
+        </Link>
 
         {/* Center nav links. gap-8 spaces the links, each link changes color only on hover */}
         <nav className="flex items-center gap-8 text-sm text-slate">

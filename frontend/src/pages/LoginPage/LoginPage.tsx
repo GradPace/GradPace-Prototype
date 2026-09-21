@@ -1,11 +1,32 @@
-// import { Link } from 'react-router-dom'
+import { useState, type FormEvent } from "react";
 import Navbar from "../../components/Navbar/Navbar";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../../lib/api/api";
 
 /*
  * login page
  */
 export default function LoginPage() {
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      const { access, refresh } = await apiFetch("/api/auth/login/", {
+        email: form.get("email"),
+        password: form.get("password"),
+      });
+      localStorage.setItem("access", access);
+      localStorage.setItem("refresh", refresh);
+      navigate("/");
+    } catch {
+      setError("Invalid email or password.");
+    }
+  }
+
   return (
     <div className="min-h-screen bg-canvas font-sans text-ink">
       <Navbar />
@@ -23,7 +44,7 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          <form className="mt-8 flex flex-col gap-6">
+          <form className="mt-8 flex flex-col gap-6" onSubmit={handleSubmit}>
             <label className="flex flex-col gap-2 text-sm font-medium text-ink">
               Email
               <input
@@ -43,6 +64,8 @@ export default function LoginPage() {
                 className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
               />
             </label>
+
+            {error && <p className="mt-2 text-sm text-pink">{error}</p>}
 
             <button
               type="submit"
