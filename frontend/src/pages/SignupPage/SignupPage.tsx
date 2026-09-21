@@ -7,7 +7,7 @@ export default function SignupPage() {
       <Navbar />
 
       <main className="mx-auto flex max-w-6xl justify-center px-8 py-24">
-        <div className="w-full max-w-md rounded-2xl border border-line bg-surface p-10">
+        <div className="w-full max-w-xl rounded-2xl border border-line bg-surface p-10">
           <h1 className="text-4xl font-medium text-ink">Create your account</h1>
           <p className="mt-3 text-sm text-slate">
             Already have an account?{" "}
@@ -20,15 +20,27 @@ export default function SignupPage() {
           </p>
 
           <form className="mt-8 flex flex-col gap-6">
-            <label className="flex flex-col gap-2 text-sm font-medium text-ink">
-              Full name
-              <input
-                type="text"
-                name="name"
-                required
-                className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
-              />
-            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <label className="flex flex-col gap-2 text-sm font-medium text-ink">
+                First name
+                <input
+                  type="text"
+                  name="first_name"
+                  required
+                  className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
+                />
+              </label>
+
+              <label className="flex flex-col gap-2 text-sm font-medium text-ink">
+                Last name
+                <input
+                  type="text"
+                  name="last_name"
+                  required
+                  className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
+                />
+              </label>
+            </div>
 
             <label className="flex flex-col gap-2 text-sm font-medium text-ink">
               Email
@@ -45,6 +57,16 @@ export default function SignupPage() {
               <input
                 type="password"
                 name="password"
+                required
+                className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
+              />
+            </label>
+
+            <label className="flex flex-col gap-2 text-sm font-medium text-ink">
+              Confirm password
+              <input
+                type="password"
+                name="password_confirm"
                 required
                 className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
               />
