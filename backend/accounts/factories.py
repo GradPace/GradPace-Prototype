@@ -1,7 +1,7 @@
 import factory
 from django.contrib.auth import get_user_model
 
-from .models import Role, StudentProfile
+from .models import Certificate, Role, Skill, StudentProfile, TakenClass
 
 User = get_user_model()
 
@@ -43,3 +43,34 @@ class StudentProfileFactory(factory.django.DjangoModelFactory):
     student_id = factory.Sequence(lambda n: f'S{n:07d}')
     major = 'Computer Science'
     uni = 'State University'
+
+
+class TakenClassFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = TakenClass
+
+    student = factory.SubFactory(StudentProfileFactory)
+    course_code = factory.Sequence(lambda n: f'CS{n:03d}')
+    course_name = 'Intro to Software Engineering'
+    semester = 'fall'
+    year = 2025
+    grade = 'A'
+
+
+class CertificateFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Certificate
+
+    student = factory.SubFactory(StudentProfileFactory)
+    name = 'AWS Certified Cloud Practitioner'
+    issuing_organization = 'Amazon Web Services'
+
+
+class SkillFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Skill
+        django_get_or_create = ('student', 'name')
+
+    student = factory.SubFactory(StudentProfileFactory)
+    name = factory.Sequence(lambda n: f'Skill {n}')
+    proficiency_level = 'intermediate'
