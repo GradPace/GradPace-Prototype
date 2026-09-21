@@ -36,7 +36,8 @@ services:
       # which `docker compose up -d` never attaches - it just hangs forever.
       - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
     command: >
-      sh -c "corepack enable &&
+      sh -c "npm install -g corepack &&
+             corepack enable &&
              pnpm install &&
              pnpm dev --host"
     volumes:

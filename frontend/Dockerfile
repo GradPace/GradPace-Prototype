@@ -5,7 +5,8 @@ FROM node:26-alpine AS builder
 
 WORKDIR /app
 
-RUN corepack enable
+# Node 26 no longer bundles Corepack, so it must be installed before it can be enabled.
+RUN npm install -g corepack && corepack enable
 
 # Resolve deps first so this layer is cached until the lockfile changes.
 COPY package.json pnpm-lock.yaml ./
