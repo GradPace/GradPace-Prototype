@@ -213,13 +213,23 @@ class StudentOwnedMixin:
     """Shared by the taken-class/certificate/skill views below - scopes
     every query to the caller's own StudentProfile, 404ing (not 403) before
     one exists or when the entry belongs to someone else. Same profile-first
-    behavior as ProfileView."""
+    behavior as ProfileView.
+
+    Views using this mixin set `queryset = <Model>.objects.all()` purely to
+    declare the model (for get_queryset() and schema generation) - it's
+    never queried directly since get_queryset() always filters by owner."""
 
     def get_student_profile(self):
         try:
             return self.request.user.student_profile
         except StudentProfile.DoesNotExist:
             raise Http404 from None
+
+    def get_queryset(self):
+        return self.queryset.model.objects.filter(student=self.get_student_profile())
+
+    def perform_create(self, serializer):
+        serializer.save(student=self.get_student_profile())
 
 
 class TakenClassListView(StudentOwnedMixin, generics.ListCreateAPIView):
@@ -229,21 +239,12 @@ class TakenClassListView(StudentOwnedMixin, generics.ListCreateAPIView):
     serializer_class = TakenClassSerializer
     queryset = TakenClass.objects.all()
 
-    def get_queryset(self):
-        return TakenClass.objects.filter(student=self.get_student_profile())
-
-    def perform_create(self, serializer):
-        serializer.save(student=self.get_student_profile())
-
 
 class TakenClassDetailView(StudentOwnedMixin, generics.RetrieveUpdateDestroyAPIView):
     """Authenticated - a single taken-class entry, scoped to the caller."""
 
     serializer_class = TakenClassSerializer
     queryset = TakenClass.objects.all()
-
-    def get_queryset(self):
-        return TakenClass.objects.filter(student=self.get_student_profile())
 
 
 class CertificateListView(StudentOwnedMixin, generics.ListCreateAPIView):
@@ -253,21 +254,12 @@ class CertificateListView(StudentOwnedMixin, generics.ListCreateAPIView):
     serializer_class = CertificateSerializer
     queryset = Certificate.objects.all()
 
-    def get_queryset(self):
-        return Certificate.objects.filter(student=self.get_student_profile())
-
-    def perform_create(self, serializer):
-        serializer.save(student=self.get_student_profile())
-
 
 class CertificateDetailView(StudentOwnedMixin, generics.RetrieveUpdateDestroyAPIView):
     """Authenticated - a single certificate entry, scoped to the caller."""
 
     serializer_class = CertificateSerializer
     queryset = Certificate.objects.all()
-
-    def get_queryset(self):
-        return Certificate.objects.filter(student=self.get_student_profile())
 
 
 class SkillListView(StudentOwnedMixin, generics.ListCreateAPIView):
@@ -277,15 +269,9 @@ class SkillListView(StudentOwnedMixin, generics.ListCreateAPIView):
     serializer_class = SkillSerializer
     queryset = Skill.objects.all()
 
-    def get_queryset(self):
-        return Skill.objects.filter(student=self.get_student_profile())
-
 
 class SkillDetailView(StudentOwnedMixin, generics.RetrieveUpdateDestroyAPIView):
     """Authenticated - a single skill entry, scoped to the caller."""
 
     serializer_class = SkillSerializer
     queryset = Skill.objects.all()
-
-    def get_queryset(self):
-        return Skill.objects.filter(student=self.get_student_profile())
