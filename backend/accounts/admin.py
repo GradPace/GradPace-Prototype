@@ -1,7 +1,16 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import AdminProfile, AlumniProfile, CustomUser, Role, StudentProfile
+from .models import (
+    AdminProfile,
+    AlumniProfile,
+    Certificate,
+    CustomUser,
+    Role,
+    Skill,
+    StudentProfile,
+    TakenClass,
+)
 
 
 @admin.register(CustomUser)
@@ -38,3 +47,6 @@ admin.site.register(Role)
 admin.site.register(StudentProfile)
 admin.site.register(AlumniProfile)
 admin.site.register(AdminProfile)
+admin.site.register(TakenClass)
+admin.site.register(Certificate)
+admin.site.register(Skill)

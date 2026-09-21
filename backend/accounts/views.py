@@ -2,27 +2,31 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMultiAlternatives
+from django.http import Http404
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from drf_spectacular.utils import extend_schema
-from rest_framework import permissions, status
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import StudentProfile
+from .models import Certificate, Skill, StudentProfile, TakenClass
 from .serializers import (
+    CertificateSerializer,
     LogoutSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    SkillSerializer,
     StudentProfileCreateSerializer,
     StudentProfileSerializer,
     StudentProfileUpdateSerializer,
+    TakenClassSerializer,
     TokenPairSerializer,
     UserSerializer,
 )
@@ -203,3 +207,85 @@ class ProfileView(APIView):
         serializer.is_valid(raise_exception=True)
         profile = serializer.save()
         return Response(StudentProfileSerializer(profile).data)
+
+
+class StudentOwnedMixin:
+    """Shared by the taken-class/certificate/skill views below - scopes
+    every query to the caller's own StudentProfile, 404ing (not 403) before
+    one exists or when the entry belongs to someone else. Same profile-first
+    behavior as ProfileView."""
+
+    def get_student_profile(self):
+        try:
+            return self.request.user.student_profile
+        except StudentProfile.DoesNotExist:
+            raise Http404 from None
+
+
+class TakenClassListView(StudentOwnedMixin, generics.ListCreateAPIView):
+    """Authenticated (default IsAuthenticated) - the caller's own taken
+    classes. GET lists them, POST adds one."""
+
+    serializer_class = TakenClassSerializer
+    queryset = TakenClass.objects.all()
+
+    def get_queryset(self):
+        return TakenClass.objects.filter(student=self.get_student_profile())
+
+    def perform_create(self, serializer):
+        serializer.save(student=self.get_student_profile())
+
+
+class TakenClassDetailView(StudentOwnedMixin, generics.RetrieveUpdateDestroyAPIView):
+    """Authenticated - a single taken-class entry, scoped to the caller."""
+
+    serializer_class = TakenClassSerializer
+    queryset = TakenClass.objects.all()
+
+    def get_queryset(self):
+        return TakenClass.objects.filter(student=self.get_student_profile())
+
+
+class CertificateListView(StudentOwnedMixin, generics.ListCreateAPIView):
+    """Authenticated - the caller's own certificates. GET lists them, POST
+    adds one."""
+
+    serializer_class = CertificateSerializer
+    queryset = Certificate.objects.all()
+
+    def get_queryset(self):
+        return Certificate.objects.filter(student=self.get_student_profile())
+
+    def perform_create(self, serializer):
+        serializer.save(student=self.get_student_profile())
+
+
+class CertificateDetailView(StudentOwnedMixin, generics.RetrieveUpdateDestroyAPIView):
+    """Authenticated - a single certificate entry, scoped to the caller."""
+
+    serializer_class = CertificateSerializer
+    queryset = Certificate.objects.all()
+
+    def get_queryset(self):
+        return Certificate.objects.filter(student=self.get_student_profile())
+
+
+class SkillListView(StudentOwnedMixin, generics.ListCreateAPIView):
+    """Authenticated - the caller's own skills. GET lists them, POST adds
+    one (400s on a duplicate name - see Skill's unique_together)."""
+
+    serializer_class = SkillSerializer
+    queryset = Skill.objects.all()
+
+    def get_queryset(self):
+        return Skill.objects.filter(student=self.get_student_profile())
+
+
+class SkillDetailView(StudentOwnedMixin, generics.RetrieveUpdateDestroyAPIView):
+    """Authenticated - a single skill entry, scoped to the caller."""
+
+    serializer_class = SkillSerializer
+    queryset = Skill.objects.all()
+
+    def get_queryset(self):
+        return Skill.objects.filter(student=self.get_student_profile())

@@ -19,4 +19,14 @@ urlpatterns = [
     ),
     path('me/', views.MeView.as_view(), name='me'),
     path('profile/', views.ProfileView.as_view(), name='profile'),
+    path('profile/classes/', views.TakenClassListView.as_view(), name='class-list'),
+    path('profile/classes/<uuid:pk>/', views.TakenClassDetailView.as_view(), name='class-detail'),
+    path('profile/certificates/', views.CertificateListView.as_view(), name='certificate-list'),
+    path(
+        'profile/certificates/<uuid:pk>/',
+        views.CertificateDetailView.as_view(),
+        name='certificate-detail',
+    ),
+    path('profile/skills/', views.SkillListView.as_view(), name='skill-list'),
+    path('profile/skills/<uuid:pk>/', views.SkillDetailView.as_view(), name='skill-detail'),
 ]
