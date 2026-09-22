@@ -131,7 +131,7 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     'TITLE': 'GradPace API',
     'DESCRIPTION': 'Backend API for GradPace - Team Copper.',
-    'VERSION': '1.0.0',
+    'VERSION': '0.5.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
