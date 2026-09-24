@@ -8,11 +8,17 @@ export default function SignupPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
+  // This function job is, on click to take the inputs and send it
+  // to /api/auth/register/ (located @ backend/accounts/urls.py)
+  // to store the registration form.
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     try {
-      const { access, refresh } = await apiFetch("/api/auth/register/", {
+      const { access, refresh } = await apiFetch<{
+        access: string;
+        refresh: string;
+      }>("/api/auth/register/", {
         first_name: form.get("first_name"),
         last_name: form.get("last_name"),
         email: form.get("email"),
@@ -22,8 +28,15 @@ export default function SignupPage() {
       localStorage.setItem("access", access);
       localStorage.setItem("refresh", refresh);
       navigate("/");
-    } catch {
-      setError("Could not create account. Check your details and try again.");
+    } catch (err) {
+      // A network-level failure (CORS block, backend unreachable) throws a
+      // plain Error too ("Failed to fetch"), not just ApiError - err.message
+      // covers both instead of only showing validation errors.
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not create account. Check your details and try again.",
+      );
     }
   }
 
