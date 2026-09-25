@@ -13,11 +13,13 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "django-extensions>=4.1",
     "factory-boy>=3.3.3",
+    "pydot>=4.0.1",
     "pytest>=9.1.1",
     "pytest-django>=4.14.0",
     "python-dotenv>=1.2.3",
-    "ruff>=0.16.7",
+    "ruff>=0.16.8",
 ]
 docs = [
     "furo>=2025.12.19",

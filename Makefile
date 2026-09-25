@@ -1,4 +1,4 @@
-.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend test docs clean
+.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend test docs schema-diagram clean
 
 # No docker-compose.yml/compose.yaml exists - only the explicit dev/prod files
 # below - so every docker compose call here must be pointed at one via -f.
@@ -71,6 +71,10 @@ test: test-backend test-frontend ## Run everything: backend + frontend checks (n
 
 docs: ## Build the Sphinx docs (backend/docs/_build/html)
 	cd backend && uv run --group docs sphinx-build -b html docs docs/_build/html
+
+schema-diagram: ## Regenerate the accounts app ER diagram (backend/docs/schema.svg)
+	docker compose -f docker-compose.dev.yml run --rm backend sh -c \
+		"uv sync && uv run manage.py graph_models accounts --pydot -o docs/schema.svg"
 
 clean: ## Clean up Python cache and Docker resources
 	find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true

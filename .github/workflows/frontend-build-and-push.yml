@@ -30,10 +30,13 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
-          node-version: '24'
+          node-version: '26'
 
       - name: Enable pnpm via corepack
-        run: corepack enable
+        # Node 26 no longer bundles Corepack, so it must be installed before it can be enabled.
+        run: |
+          npm install -g corepack
+          corepack enable
 
       - name: Install dependencies
         working-directory: frontend

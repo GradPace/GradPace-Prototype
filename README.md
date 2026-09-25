@@ -20,6 +20,10 @@
 * JJ Wile - jwile012@odu.edu - GitHub: jwile012
 * Nate Balcha - Email: nbalc001@odu.edu; Discord: _nate14, GitHub: Natebalcha
 
+## Backend docs
+
+* [Database schema](backend/docs/schema.md) - auto-generated ER diagram of the accounts app
+
 ## License
 
 All rights reserved - see [`LICENSE`](./LICENSE). Ownership among team

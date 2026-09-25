@@ -2,6 +2,7 @@ import uuid
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
+from django.core.validators import MinValueValidator
 from django.db import models
 
 
@@ -99,3 +100,87 @@ class AdminProfile(models.Model):
 
     def __str__(self):
         return self.user.email
+
+
+class TakenClass(models.Model):
+    """A single completed/in-progress course entry for a student, entered by
+    the student themselves as part of profile completion. No uniqueness
+    constraint because a student can retake a class."""
+
+    SEMESTER_CHOICES = [
+        ('fall', 'Fall'),
+        ('spring', 'Spring'),
+        ('summer', 'Summer'),
+        ('winter', 'Winter'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(
+        StudentProfile, on_delete=models.CASCADE, related_name='taken_classes'
+    )
+    course_code = models.CharField(max_length=20)
+    course_name = models.CharField(max_length=150)
+    semester = models.CharField(max_length=10, choices=SEMESTER_CHOICES)
+    year = models.PositiveSmallIntegerField(validators=[MinValueValidator(1900)])
+    # Free text, not choices - grading scales vary too much across schools.
+    grade = models.CharField(max_length=5, blank=True, default='')
+    credits = models.PositiveSmallIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.course_code} ({self.student.user.email})'
+
+
+class Certificate(models.Model):
+    """A certification/credential a student has earned, self-reported as
+    part of profile completion."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(
+        StudentProfile, on_delete=models.CASCADE, related_name='certificates'
+    )
+    name = models.CharField(max_length=150)
+    issuing_organization = models.CharField(max_length=150)
+    date_earned = models.DateField(null=True, blank=True)
+    credential_url = models.URLField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.name} ({self.student.user.email})'
+
+
+class Skill(models.Model):
+    """A skill a student has self-reported as part of profile completion.
+    Unique per (student, name). Unlike classes/certificates, listing the
+    same skill twice is just a duplicate, not a legitimate re-entry."""
+
+    PROFICIENCY_CHOICES = [
+        ('beginner', 'Beginner'),
+        ('intermediate', 'Intermediate'),
+        ('advanced', 'Advanced'),
+        ('expert', 'Expert'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='skills')
+    name = models.CharField(max_length=100)
+    proficiency_level = models.CharField(
+        max_length=20, choices=PROFICIENCY_CHOICES, blank=True, default=''
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ('student', 'name')
+
+    def __str__(self):
+        return f'{self.name} ({self.student.user.email})'
