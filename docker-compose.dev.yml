@@ -18,9 +18,15 @@ services:
              uv run manage.py runserver 0.0.0.0:8000"
     environment:
       - UV_PROJECT_ENVIRONMENT=/app/.venv
+      # Keeps .pyc files off the host bind mount - otherwise they're written
+      # back into ./backend and can go stale relative to edited source (seen
+      # as phantom ModuleNotFoundErrors for packages already removed from
+      # pyproject.toml).
+      - PYTHONPYCACHEPREFIX=/pycache
     volumes:
       - ./backend:/app            # live code - runserver reloads on save
       - backend_venv:/app/.venv   # container's Linux venv, kept off the host
+      - backend_pycache:/pycache  # compiled bytecode, kept off the host
     ports:
       - "8000:8000"
     tty: true
@@ -51,6 +57,7 @@ services:
 
 volumes:
   backend_venv:
+  backend_pycache:
   frontend_node_modules:
 
 # No db / mail services: dev.py uses sqlite and the console email backend.
