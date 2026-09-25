@@ -31,7 +31,7 @@ MAILERS = {
 PWNED_PASSWORDS_CHECK_ENABLED = False
 
 # Where accounts.views.PasswordResetRequestView points the reset link. The
-# Node frontend isn't set up yet - this is its eventual local dev URL.
-FRONTEND_URL = 'http://localhost:3000'
+# 5173 is Vite's default port
+FRONTEND_URL = 'http://localhost:5173'
 
-# CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = ['http://localhost:5173',]

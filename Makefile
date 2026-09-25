@@ -3,6 +3,7 @@
 # No docker-compose.yml/compose.yaml exists - only the explicit dev/prod files
 # below - so every docker compose call here must be pointed at one via -f.
 COMPOSE = docker compose -f docker-compose.prod.yml
+DEV_COMPOSE = docker compose -f docker-compose.dev.yml
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -13,6 +14,10 @@ help: ## Show this help message
 deploy: ## Pull latest images and deploy all services
 	$(COMPOSE) pull && \
 	$(COMPOSE) up -d && \
+	docker image prune -af
+
+up-dev: ## Start dev compose
+	$(DEV_COMPOSE) up -d && \
 	docker image prune -af
 
 deploy-frontend: ## Pull and deploy only the frontend
@@ -27,6 +32,9 @@ deploy-backend: ## Pull and deploy only the backend
 
 down: ## Stop and remove services
 	$(COMPOSE) down
+
+down-dev: ## Stop and remove services
+	$(DEV_COMPOSE) down
 
 restart: ## Restart services
 	$(COMPOSE) restart

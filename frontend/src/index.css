@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source "../src";
 
 /*
  * this is the global tailwind css for the front end. 
