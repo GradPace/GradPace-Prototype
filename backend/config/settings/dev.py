@@ -34,4 +34,6 @@ PWNED_PASSWORDS_CHECK_ENABLED = False
 # 5173 is Vite's default port
 FRONTEND_URL = 'http://localhost:5173'
 
-CORS_ALLOWED_ORIGINS = ['http://localhost:5173',]
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+]
