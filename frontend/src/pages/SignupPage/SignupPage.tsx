@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 export default function SignupPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const [showPasswordHint, setShowPasswordHint] = useState(false);
 
   // This function job is, on click to take the inputs and send it
   // to /api/auth/register/ (located @ backend/accounts/urls.py)
@@ -96,9 +97,24 @@ export default function SignupPage() {
                 type="password"
                 name="password"
                 required
+                onFocus={() => setShowPasswordHint(true)}
+                onBlur={() => setShowPasswordHint(false)}
                 className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
               />
             </label>
+
+            {showPasswordHint && (
+              <ul className="-mt-4 list-disc space-y-1 pl-5 text-sm text-slate">
+                <li>At least 8 characters</li>
+                <li>1 uppercase letter</li>
+                <li>1 number</li>
+                <li>1 special character (!@#$%^&*)</li>
+                <li>Not a common word or common password</li>
+                <li>
+                  No repeated or sequential characters (e.g. "aaaa", "1234")
+                </li>
+              </ul>
+            )}
 
             <label className="flex flex-col gap-2 text-sm font-medium text-ink">
               Confirm password
