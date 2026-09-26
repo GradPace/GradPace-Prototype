@@ -41,6 +41,10 @@ services:
       - /srv/prototype/mail_dkim:/etc/opendkim/keys
     networks:
       - gradpace_net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 
   db:
     image: postgres:17
@@ -61,6 +65,10 @@ services:
       retries: 5
     networks:
       - gradpace_net
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
 
   # Frontend
   frontend:
@@ -83,11 +91,15 @@ services:
       - gradpace_net
 
 networks:
+  # overlay (not bridge) so backend/frontend can reach db/mail across nodes -
+  # those two stay pinned to the manager (see their placement constraints
+  # above) since their data only exists there via bind mounts, but
+  # backend/frontend can now land on either node.
   # 172.55.1.0/24 collides with steyaertsite_steyaertsite_net on this host -
   # check `docker network inspect $(docker network ls -q) --format '{{.Name}}: {{range .IPAM.Config}}{{.Subnet}}{{end}}'`
   # before reusing/bumping this if it ever needs to change again.
   gradpace_net:
-    driver: bridge
+    driver: overlay
     ipam:
       config:
         - subnet: 172.55.2.0/24

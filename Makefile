@@ -1,8 +1,10 @@
-.PHONY: help deploy deploy-backend deploy-frontend up down restart logs check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend test docs schema-diagram clean
+.PHONY: help deploy deploy-backend deploy-frontend rollback-backend rollback-frontend up down restart logs logs-backend logs-frontend logs-db logs-mail check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend test docs schema-diagram clean
 
-# No docker-compose.yml/compose.yaml exists - only the explicit dev/prod files
-# below - so every docker compose call here must be pointed at one via -f.
-COMPOSE = docker compose -f docker-compose.prod.yml
+# Prod runs on a Docker Swarm (two nodes) - `docker stack deploy`, not plain
+# `docker compose up`, so it can honor docker-compose.prod.yml's `deploy:`
+# placement constraints and actually schedule across both nodes. Dev is a
+# single host with no swarm, so it stays on plain `docker compose`.
+STACK = gradpace
 DEV_COMPOSE = docker compose -f docker-compose.dev.yml
 
 help: ## Show this help message
@@ -11,36 +13,50 @@ help: ## Show this help message
 	@echo 'Available targets:'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-deploy: ## Pull latest images and deploy all services
-	$(COMPOSE) pull && \
-	$(COMPOSE) up -d && \
-	docker image prune -af
+deploy: ## Deploy/update the full stack (re-resolves latest image digests)
+	docker stack deploy -c docker-compose.prod.yml $(STACK)
 
 up-dev: ## Start dev compose
 	$(DEV_COMPOSE) up -d && \
 	docker image prune -af
 
-deploy-frontend: ## Pull and deploy only the frontend
-	$(COMPOSE) pull frontend && \
-	$(COMPOSE) up -d frontend && \
-	docker image prune -af
+deploy-frontend: ## Force a fresh pull + redeploy of just the frontend service
+	docker service update --with-registry-auth --force $(STACK)_frontend
 
-deploy-backend: ## Pull and deploy only the backend
-	$(COMPOSE) pull backend && \
-	$(COMPOSE) up -d backend && \
-	docker image prune -af
+deploy-backend: ## Force a fresh pull + redeploy of just the backend service
+	docker service update --with-registry-auth --force $(STACK)_backend
 
-down: ## Stop and remove services
-	$(COMPOSE) down
+rollback-frontend: ## Roll the frontend service back to its previous version
+	docker service rollback $(STACK)_frontend
+
+rollback-backend: ## Roll the backend service back to its previous version
+	docker service rollback $(STACK)_backend
+
+down: ## Remove the entire stack
+	docker stack rm $(STACK)
 
 down-dev: ## Stop and remove services
 	$(DEV_COMPOSE) down
 
-restart: ## Restart services
-	$(COMPOSE) restart
+restart: ## Force a rolling restart of every service in the stack
+	docker service update --force $(STACK)_backend
+	docker service update --force $(STACK)_frontend
+	docker service update --force $(STACK)_db
+	docker service update --force $(STACK)_mail
 
-logs: ## View logs from services
-	$(COMPOSE) logs -f
+logs-backend: ## Tail logs from the backend service
+	docker service logs -f $(STACK)_backend
+
+logs-frontend: ## Tail logs from the frontend service
+	docker service logs -f $(STACK)_frontend
+
+logs-db: ## Tail logs from the db service
+	docker service logs -f $(STACK)_db
+
+logs-mail: ## Tail logs from the mail service
+	docker service logs -f $(STACK)_mail
+
+logs: logs-backend ## Tail logs from the backend service (see logs-frontend/logs-db/logs-mail for the others)
 
 check: ## Run Django's system check
 	cd backend && uv run manage.py check
