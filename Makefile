@@ -14,7 +14,7 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 deploy: ## Deploy/update the full stack (re-resolves latest image digests)
-	docker stack deploy -c docker-compose.prod.yml $(STACK)
+	docker stack deploy --with-registry-auth -c docker-compose.prod.yml $(STACK)
 
 up-dev: ## Start dev compose
 	$(DEV_COMPOSE) up -d && \
