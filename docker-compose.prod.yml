@@ -20,6 +20,8 @@ services:
     networks:
       - nginx-proxy
       - gradpace_net
+    deploy:
+      replicas: 3
 
   mail:
     image: boky/postfix
@@ -79,6 +81,8 @@ services:
     networks:
       - nginx-proxy
       - gradpace_net
+    deploy:
+      replicas: 3
 
 networks:
   # overlay (not bridge) so backend/frontend can reach db/mail across nodes -
