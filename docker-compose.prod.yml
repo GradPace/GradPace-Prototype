@@ -1,5 +1,3 @@
-name: GradPace
-
 services:
   # Backend
   backend:
