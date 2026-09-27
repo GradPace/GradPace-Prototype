@@ -100,9 +100,9 @@ networks:
   # before reusing/bumping this if it ever needs to change again.
   gradpace_net:
     driver: overlay
+    attachable: true
     ipam:
       config:
         - subnet: 172.55.2.0/24
-          gateway: 172.55.2.1
   nginx-proxy:
     external: true
