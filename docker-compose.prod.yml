@@ -10,6 +10,13 @@ services:
     environment:
       - VIRTUAL_HOST=gradpace-api.steyaert.xyz
       - VIRTUAL_PORT=8000
+      - SECRET_KEY_FILE=/run/secrets/backend_secret_key
+      - DATABASE_PASSWORD_FILE=/run/secrets/db_password
+      - EMAIL_HOST_PASSWORD_FILE=/run/secrets/email_host_password
+    secrets:
+      - backend_secret_key
+      - db_password
+      - email_host_password
     init: true
     healthcheck:
       # No curl/wget in this Alpine image - use the venv's own python instead.
@@ -45,10 +52,16 @@ services:
   db:
     image: postgres:17
     # No expose/ports: api reaches db:5432 over gradpace_net. Nothing on the host.
-    # .env.prod must define POSTGRES_USER / POSTGRES_DB / POSTGRES_PASSWORD to
-    # match api's DATABASE_USERNAME / DATABASE_NAME / DATABASE_PASSWORD.
+    # .env.prod must define POSTGRES_USER / POSTGRES_DB to match api's
+    # DATABASE_USERNAME / DATABASE_NAME. POSTGRES_PASSWORD comes from the
+    # db_password secret below (POSTGRES_PASSWORD must NOT also be set in
+    # .env.prod - the postgres image errors if both are present).
     env_file:
       - .env.prod
+    environment:
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
+    secrets:
+      - db_password
     volumes:
       - /srv/prototype/postgres_data:/var/lib/postgresql/data
     init: true
@@ -99,4 +112,14 @@ networks:
       config:
         - subnet: 172.55.2.0/24
   nginx-proxy:
+    external: true
+
+secrets:
+  # Created out-of-band on the manager via `docker secret create <name> -`,
+  # not defined inline here - keeps secret material out of this repo/host file.
+  backend_secret_key:
+    external: true
+  db_password:
+    external: true
+  email_host_password:
     external: true

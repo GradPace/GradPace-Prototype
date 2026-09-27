@@ -14,6 +14,13 @@ RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
 COPY . .
+
+# Vite bakes import.meta.env.VITE_* values into the bundle at build time -
+# must be passed as a build-arg (see frontend-build-and-push.yml), not a
+# runtime env var, since it's already compiled in by the time any container
+# from this image starts.
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
 RUN pnpm build
 
 
