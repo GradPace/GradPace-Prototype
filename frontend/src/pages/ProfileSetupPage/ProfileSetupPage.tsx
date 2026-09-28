@@ -113,15 +113,6 @@ export default function ProfileSetupPage() {
                 />
               </label>
 
-              <label className="flex items-center gap-2 text-sm font-medium text-ink">
-                <input
-                  type="checkbox"
-                  name="graduated"
-                  className="h-4 w-4 rounded border-line accent-blue"
-                />
-                I have already graduated
-              </label>
-
               <button
                 type="submit"
                 disabled={submitting}
