@@ -1,23 +1,53 @@
 import Navbar from "../../components/Navbar/Navbar";
 import { useNavigate } from "react-router-dom";
 import { logout } from "../../lib/api/auth";
-import { useEffect, useState } from "react";
-import { apiGet } from "../../lib/api/api";
+import { useEffect, useState, type FormEvent } from "react";
+import { apiGet, apiFetch } from "../../lib/api/api";
 
 export default function ProfileSetupPage() {
   const navigate = useNavigate();
   const [firstName, setFirstName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleLogout() {
     await logout();
     navigate("/login", { replace: true });
   }
 
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    setError(null);
+
+    const form = new FormData(event.currentTarget);
+    try {
+      await apiFetch(
+        "/api/auth/profile/",
+        {
+          student_id: form.get("student_id"),
+          major: form.get("major"),
+          uni: form.get("uni"),
+          location: form.get("location") ?? "",
+          graduated: form.get("graduated") === "on", // unchecked box isn't in FormData
+        },
+        true, // send the access token
+      );
+      navigate("/profile", { replace: true });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not create your profile.",
+      );
+      setSubmitting(false);
+    }
+  }
+
   useEffect(() => {
     apiGet<{ first_name: string }>("/api/auth/me")
       .then((user) => setFirstName(user.first_name))
       .catch(() => setFirstName(null));
-  });
+  }, []);
   return (
     <div className="min-h-screen bg-canvas font-sans text-ink">
       <Navbar />
@@ -41,7 +71,8 @@ export default function ProfileSetupPage() {
             </button>
           </p>
 
-          <form className="mt-8 flex flex-col gap-6">
+          <form className="mt-8 flex flex-col gap-6" onSubmit={handleSubmit}>
+            {error && <p className="text-sm text-pink">{error}</p>}
             <div className="grid gap-4">
               <label className="flex flex-col gap-2 text-sm font-medium text-ink">
                 Student ID
@@ -54,20 +85,20 @@ export default function ProfileSetupPage() {
               </label>
 
               <label className="flex flex-col gap-2 text-sm font-medium text-ink">
-                Major
+                University
                 <input
                   type="text"
-                  name="major"
+                  name="uni"
                   required
                   className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
                 />
               </label>
 
               <label className="flex flex-col gap-2 text-sm font-medium text-ink">
-                University
+                Major
                 <input
                   type="text"
-                  name="uni"
+                  name="major"
                   required
                   className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
                 />
@@ -93,9 +124,10 @@ export default function ProfileSetupPage() {
 
               <button
                 type="submit"
-                className="mt-2 w-full rounded-full bg-blue py-3 text-sm font-semibold text-white transition-colors hover:bg-blue/90"
+                disabled={submitting}
+                className="mt-2 w-full rounded-full bg-blue py-3 text-sm font-semibold text-white transition-colors hover:bg-blue/90 disabled:opacity-60"
               >
-                Create Profile
+                {submitting ? "Creating..." : "Create Profile"}
               </button>
             </div>
           </form>

@@ -1,6 +1,14 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { logout } from "../../lib/api/auth";
 
 export default function Navbar() {
+  const navigate = useNavigate();
+  const isLoggedIn = Boolean(localStorage.getItem("access"));
+
+  async function handleLogout() {
+    await logout();
+    navigate("/login", { replace: true });
+  }
   return (
     // <header> is the whole bar; border-b and border-line draws the header line
     <header className="bg-canvas">
@@ -38,18 +46,30 @@ export default function Navbar() {
 
         {/*Right side auth action. "Log in" and "Sign up" */}
         <div className="flex items-center gap-6">
-          <Link
-            to="/login"
-            className="text-sm text-blue/70 transition-colors hover:text-blue"
-          >
-            Log in
-          </Link>
-          <Link
-            to="/signup"
-            className="rounded-md bg-blue px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue/90"
-          >
-            Sign up
-          </Link>
+          {isLoggedIn ? (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-md bg-blue px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue/90"
+            >
+              Log out
+            </button>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="text-sm text-blue/70 transition-colors hover:text-blue"
+              >
+                Log in
+              </Link>
+              <Link
+                to="/signup"
+                className="rounded-md bg-blue px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue/90"
+              >
+                Sign up
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
