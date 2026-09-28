@@ -24,6 +24,12 @@ MIDDLEWARE.insert(
     'whitenoise.middleware.WhiteNoiseMiddleware',
 )
 
+# Compress API responses. Must be near the top, per Django docs - it needs to
+# run last on the way out (closest to the client) so it compresses the final
+# response body after every other middleware has already touched it. Prod
+# only: no real benefit in dev/test, and keeps it out of base.py.
+MIDDLEWARE.insert(0, 'django.middleware.gzip.GZipMiddleware')
+
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
