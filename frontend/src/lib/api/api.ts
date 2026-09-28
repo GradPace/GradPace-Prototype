@@ -32,10 +32,16 @@ function messageFromResponseBody(data: unknown): string {
 // T is the shape of a *successful* response's JSON - callers pass it as
 // apiFetch<{ access: string; refresh: string }> so the returned data
 // is typed instead of `unknown`, without loosening error handling above.
-export async function apiFetch<T>(path: string, body: unknown): Promise<T> {
+export async function apiFetch<T>(path: string, body: unknown, auth = false): Promise<T> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (auth) {
+    const access = localStorage.getItem('access')
+    if (access) headers.Authorization = `Bearer ${access}`
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   })
 
@@ -56,5 +62,16 @@ export async function apiFetch<T>(path: string, body: unknown): Promise<T> {
     throw new ApiError(res.status, data, messageFromResponseBody(data))
   }
 
+  return data as T
+}
+
+
+export async function apiGet<T>(path: string): Promise<T> {
+  const access = localStorage.getItem('access')
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: access ? { Authorization: `Bearer ${access}` } : {},
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new ApiError(res.status, data, messageFromResponseBody(data))
   return data as T
 }
