@@ -43,10 +43,12 @@ jobs:
         # /srv/prototype is a persistent checkout on this host, not something
         # actions/checkout populates - without this, Makefile/compose changes
         # merged to main never actually reach the host that runs them.
+        # Fetches over HTTPS with this run's own short-lived token instead of
+        # the origin remote's SSH config, which has no key set up on the host.
         run: |
           cd /srv/prototype
-          git fetch origin main
-          git reset --hard origin/main
+          git fetch "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" main
+          git reset --hard FETCH_HEAD
 
       - name: Deploy to production
         # Pin to this commit's own image instead of :latest - a service
