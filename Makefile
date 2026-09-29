@@ -6,6 +6,14 @@
 # single host with no swarm, so it stays on plain `docker compose`.
 STACK = gradpace
 DEV_COMPOSE = docker compose -f docker-compose.dev.yml
+REGISTRY_IMAGE = ghcr.io/gradpace/gradpace-prototype
+
+# deploy-frontend/deploy-backend pin to this tag instead of `:latest` - a
+# `:latest` update can no-op if Swarm doesn't see the tag string itself
+# change, even though the digest behind it moved. CI passes TAG=sha-<short
+# sha> (see frontend-deploy.yml/backend-deploy.yml) so every deploy targets
+# a distinct, unambiguous image reference. Defaults to latest for manual use.
+TAG ?= latest
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -20,11 +28,11 @@ up-dev: ## Start dev compose
 	$(DEV_COMPOSE) up -d && \
 	docker image prune -af
 
-deploy-frontend: ## Force a fresh pull + redeploy of just the frontend service
-	docker service update --with-registry-auth --force $(STACK)_frontend
+deploy-frontend: ## Force a fresh pull + redeploy of just the frontend service. Pass TAG=<tag> to pin a build (defaults to latest)
+	docker service update --with-registry-auth --force --image $(REGISTRY_IMAGE)/frontend:$(TAG) $(STACK)_frontend
 
-deploy-backend: ## Force a fresh pull + redeploy of just the backend service
-	docker service update --with-registry-auth --force $(STACK)_backend
+deploy-backend: ## Force a fresh pull + redeploy of just the backend service. Pass TAG=<tag> to pin a build (defaults to latest)
+	docker service update --with-registry-auth --force --image $(REGISTRY_IMAGE)/backend:$(TAG) $(STACK)_backend
 
 rollback-frontend: ## Roll the frontend service back to its previous version
 	docker service rollback $(STACK)_frontend

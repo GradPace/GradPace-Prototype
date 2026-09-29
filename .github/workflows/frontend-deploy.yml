@@ -39,7 +39,37 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy to production
+      - name: Sync deploy scripts with main
+        # /srv/prototype is a persistent checkout on this host, not something
+        # actions/checkout populates - without this, Makefile/compose changes
+        # merged to main never actually reach the host that runs them.
         run: |
           cd /srv/prototype
-          make deploy-frontend
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Deploy to production
+        # Pin to this commit's own image instead of :latest - a service
+        # update can no-op if Swarm doesn't see the tag string change, even
+        # though the digest behind :latest moved (see Makefile).
+        run: |
+          cd /srv/prototype
+          make deploy-frontend TAG=sha-$(echo "${{ github.event.workflow_run.head_sha || github.sha }}" | cut -c1-7)
+
+      - name: Verify the deployed bundle actually has the API URL baked in
+        # Regression guard for GP-57 (VITE_API_URL missing from the built
+        # bundle causing every API call to hit /undefined/api/...) - fail
+        # loudly here instead of leaving it to be found manually in prod.
+        run: |
+          sleep 5
+          FOUND=0
+          for c in $(docker ps -q -f "label=com.docker.swarm.service.name=gradpace_frontend"); do
+            if docker exec "$c" sh -c "grep -rl 'gradpace-api.steyaert.xyz' /usr/share/nginx/html/assets/*.js" >/dev/null 2>&1; then
+              FOUND=1
+            fi
+          done
+          if [ "$FOUND" -ne 1 ]; then
+            echo "::error::Deployed frontend bundle does not contain the API URL - VITE_API_URL likely missing at build time."
+            exit 1
+          fi
+          curl -sf -o /dev/null https://gradpace.steyaert.xyz/ || (echo "::error::https://gradpace.steyaert.xyz/ did not return 200 after deploy" && exit 1)

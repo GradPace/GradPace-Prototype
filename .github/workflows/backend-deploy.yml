@@ -37,7 +37,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy to production
+      - name: Sync deploy scripts with main
+        # /srv/prototype is a persistent checkout on this host, not something
+        # actions/checkout populates - without this, Makefile/compose changes
+        # merged to main never actually reach the host that runs them.
         run: |
           cd /srv/prototype
-          make deploy-backend
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Deploy to production
+        # Pin to this commit's own image instead of :latest - a service
+        # update can no-op if Swarm doesn't see the tag string change, even
+        # though the digest behind :latest moved (see Makefile).
+        run: |
+          cd /srv/prototype
+          make deploy-backend TAG=sha-$(echo "${{ github.event.workflow_run.head_sha || github.sha }}" | cut -c1-7)
+
+      - name: Verify the deployed backend is healthy and serving the new image
+        run: |
+          sleep 5
+          curl -sf -o /dev/null https://gradpace-api.steyaert.xyz/core/healthcheck/ || \
+            (echo "::error::https://gradpace-api.steyaert.xyz/core/healthcheck/ did not return 200 after deploy" && exit 1)
