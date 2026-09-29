@@ -90,6 +90,15 @@ csrf_origins = str(
 )
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_origins.split(',') if o.strip()]
 
+# Unlike dev.py, this was never set here - django-cors-headers defaults
+# CORS_ALLOWED_ORIGINS to an empty list, so every cross-origin request from
+# the production frontend was silently rejected by the browser.
+cors_origins = str(
+    get_secret('CORS_ALLOWED_ORIGINS', 'https://gradpace.steyaert.xyz')
+    or 'https://gradpace.steyaert.xyz'
+)
+CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins.split(',') if o.strip()]
+
 
 MAILERS = {
     'default': {
