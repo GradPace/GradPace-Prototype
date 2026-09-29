@@ -28,7 +28,7 @@ export default function SignupPage() {
       });
       localStorage.setItem("access", access);
       localStorage.setItem("refresh", refresh);
-      navigate("/");
+      navigate("/profileSetup", { replace: true });
     } catch (err) {
       // A network-level failure (CORS block, backend unreachable) throws a
       // plain Error too ("Failed to fetch"), not just ApiError - err.message
