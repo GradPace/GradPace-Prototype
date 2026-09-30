@@ -101,8 +101,10 @@ test-e2e: ## Run Playwright e2e tests against the dev stack (wipes backend/db.sq
 	rm -f backend/db.sqlite3
 	trap '$(DEV_COMPOSE) down; rm -f backend/db.sqlite3' EXIT; \
 	$(DEV_COMPOSE) up -d && \
-	timeout 60 sh -c 'until curl -sf http://localhost:8000/core/healthcheck/ >/dev/null; do sleep 1; done' && \
-	cd e2e && pnpm exec playwright test
+	wait_for() { i=0; until curl -sf "$$1" >/dev/null; do i=$$((i+1)); [ $$i -ge 60 ] && echo "$$1 did not become healthy in time" >&2 && exit 1; sleep 1; done; }; \
+	wait_for http://localhost:8000/core/healthcheck/ && \
+	wait_for http://localhost:5173/ && \
+	(cd e2e && pnpm exec playwright test)
 
 # Local convenience only - runs both toolchains, so it needs uv AND
 # node/pnpm available. CI jobs call test-backend / test-frontend separately
