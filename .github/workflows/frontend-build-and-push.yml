@@ -52,8 +52,14 @@ jobs:
         if: always()
         run: pnpm store prune
 
+  e2e:
+    # Runs the real frontend against the real backend (see e2e-tests.yml) -
+    # gates this deploy the same way `test` does, since a frontend change
+    # can break the cross-app flow even when lint/typecheck/unit tests pass.
+    uses: ./.github/workflows/e2e-tests.yml
+
   build-and-push:
-    needs: test
+    needs: [test, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read

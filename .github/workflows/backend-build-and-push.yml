@@ -51,8 +51,14 @@ jobs:
         working-directory: backend
         run: uv cache prune --ci
 
+  e2e:
+    # Runs the real frontend against the real backend (see e2e-tests.yml) -
+    # a backend-only change can still break the cross-app flow, so this
+    # gates the backend deploy too, not just the frontend one.
+    uses: ./.github/workflows/e2e-tests.yml
+
   build-and-push:
-    needs: test
+    needs: [test, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read
