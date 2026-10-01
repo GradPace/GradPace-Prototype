@@ -1,4 +1,6 @@
-import heroIllustration from "../../assets/hero-illustration.png";
+import heroIllustration512 from "../../assets/hero-illustration-512.webp";
+import heroIllustration1024 from "../../assets/hero-illustration-1024.webp";
+import heroIllustrationPng from "../../assets/hero-illustration.png";
 import { Link } from "react-router-dom";
 
 /*
@@ -38,8 +40,22 @@ export default function Hero() {
           </Link>
         </div>
       </div>
-      {/* This is where the hero image is located */}
-      <img src={heroIllustration} alt="" className="h-auto w-full max-w-md" />
+      {/* This is where the hero image is located. */}
+      <picture>
+        <source
+          type="image/webp"
+          srcSet={`${heroIllustration512} 512w, ${heroIllustration1024} 1024w`}
+          sizes="(min-width: 1024px) 448px, 50vw"
+        />
+        <img
+          src={heroIllustrationPng}
+          width={1024}
+          height={1024}
+          fetchPriority="high"
+          alt=""
+          className="h-auto w-full max-w-md"
+        />
+      </picture>
     </section>
   );
 }
