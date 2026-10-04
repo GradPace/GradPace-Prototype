@@ -1,4 +1,4 @@
-.PHONY: help deploy deploy-backend deploy-frontend rollback-backend rollback-frontend up down restart logs logs-backend logs-frontend logs-db logs-mail check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend test docs schema-diagram clean
+.PHONY: help deploy deploy-backend deploy-frontend rollback-backend rollback-frontend up down restart rebalance logs logs-backend logs-frontend logs-db logs-mail check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend test docs schema-diagram clean
 
 # Prod runs on a Docker Swarm (two nodes) - `docker stack deploy`, not plain
 # `docker compose up`, so it can honor docker-compose.prod.yml's `deploy:`
@@ -51,6 +51,21 @@ restart: ## Force a rolling restart of every service in the stack
 	docker service update --force $(STACK)_frontend
 	docker service update --force $(STACK)_db
 	docker service update --force $(STACK)_mail
+
+# Swarm doesn't auto-rebalance once a node rejoins - tasks that failed over to
+# the other node stay there. Run this after a node comes back from a reboot
+# or outage to redistribute backend/frontend tasks across both nodes again.
+# Refuses to run if any active node is still down, since forcing a redeploy
+# wouldn't move anything there and just churns the healthy node for nothing.
+rebalance: ## Redistribute backend/frontend tasks across swarm nodes (checks all active nodes are Ready first)
+	@not_ready=$$(docker node ls --filter availability=active --format '{{.Hostname}}: {{.Status}}' | grep -v ': Ready$$'); \
+	if [ -n "$$not_ready" ]; then \
+		echo "Refusing to rebalance - node(s) not Ready yet:"; \
+		echo "$$not_ready"; \
+		exit 1; \
+	fi
+	docker service update --force $(STACK)_backend
+	docker service update --force $(STACK)_frontend
 
 logs-backend: ## Tail logs from the backend service
 	docker service logs -f $(STACK)_backend
