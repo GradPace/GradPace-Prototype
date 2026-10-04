@@ -1,0 +1,68 @@
+# Pinned to steyaert-mgr, same reasoning as the node.role==manager placement
+# constraint in docker-compose.prod.yml. Uses its own data directory
+# (postgres_data_k3s), NOT the live Swarm Postgres's postgres_data - pointing
+# two Postgres processes at the same data dir caused a lock-file fight and
+# crash loop (see GP-69 incident notes). The Swarm DB is empty except for
+# migration/seed bookkeeping, so there's nothing to actually migrate yet;
+# this gets a real data copy only once there's real data to carry over.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: gradpace
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: steyaert-mgr
+      containers:
+        - name: db
+          image: postgres:17
+          envFrom:
+            - configMapRef:
+                name: db-config
+          env:
+            - name: POSTGRES_PASSWORD_FILE
+              value: /run/secrets/db-password/password
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: db-password
+              mountPath: /run/secrets/db-password
+              readOnly: true
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: db-password
+          secret:
+            secretName: db-password
+        - name: postgres-data
+          hostPath:
+            path: /srv/prototype/postgres_data_k3s
+            type: DirectoryOrCreate

@@ -1,0 +1,36 @@
+# Pinned to steyaert-mgr - same reasoning as db-statefulset.yaml. Uses its
+# own DKIM key directory (mail_dkim_k3s) rather than the live Swarm mail
+# service's (/srv/prototype/mail_dkim) - that one didn't crash-loop the way
+# db did (DKIM_AUTOGENERATE just regenerates keys, no exclusive lock file),
+# but keeping it separate avoids any file-level interference either way.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mail
+  namespace: gradpace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mail
+  template:
+    metadata:
+      labels:
+        app: mail
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: steyaert-mgr
+      containers:
+        - name: mail
+          image: boky/postfix
+          envFrom:
+            - configMapRef:
+                name: mail-config
+          volumeMounts:
+            - name: mail-dkim
+              mountPath: /etc/opendkim/keys
+      volumes:
+        - name: mail-dkim
+          hostPath:
+            path: /srv/prototype/mail_dkim_k3s
+            type: DirectoryOrCreate

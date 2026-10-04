@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: gradpace
+spec:
+  # Baseline the HPA scales from - it overrides this once active. Starting
+  # at 1 instead of the old fixed 3 since the HPA will add capacity under
+  # real load instead of sitting idle at a fixed count.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: backend
+          # CI overrides this with `kubectl set image deployment/backend
+          # backend=ghcr.io/.../backend:sha-<short>`, same role `make
+          # deploy-backend TAG=sha-<short>` plays for Swarm today - :latest
+          # here is only the manual-apply default.
+          image: ghcr.io/gradpace/gradpace-prototype/backend:latest
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          env:
+            - name: SECRET_KEY_FILE
+              value: /run/secrets/backend-secret-key/secret-key
+            - name: DATABASE_PASSWORD_FILE
+              value: /run/secrets/db-password/password
+            - name: EMAIL_HOST_PASSWORD_FILE
+              value: /run/secrets/email-host-password/password
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: backend-secret-key
+              mountPath: /run/secrets/backend-secret-key
+              readOnly: true
+            - name: db-password
+              mountPath: /run/secrets/db-password
+              readOnly: true
+            - name: email-host-password
+              mountPath: /run/secrets/email-host-password
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /core/healthcheck/
+              port: 8000
+              # kube-probe hits the pod directly with Host: <pod-ip>:8000,
+              # which Django's ALLOWED_HOSTS rejects - override the Host
+              # header instead of widening ALLOWED_HOSTS app-wide.
+              httpHeaders:
+                - name: Host
+                  value: gradpace-api-k3s.steyaert.xyz
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /core/healthcheck/
+              port: 8000
+              httpHeaders:
+                - name: Host
+                  value: gradpace-api-k3s.steyaert.xyz
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: backend-secret-key
+          secret:
+            secretName: backend-secret-key
+        - name: db-password
+          secret:
+            secretName: db-password
+        - name: email-host-password
+          secret:
+            secretName: email-host-password

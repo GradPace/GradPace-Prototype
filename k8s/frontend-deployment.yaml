@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: gradpace
+spec:
+  # Baseline the HPA scales from, same reasoning as backend-deployment.yaml.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      containers:
+        - name: frontend
+          # CI overrides this with `kubectl set image deployment/frontend
+          # frontend=ghcr.io/.../frontend:sha-<short>` - :latest here is only
+          # the manual-apply default (see backend-deployment.yaml).
+          image: ghcr.io/gradpace/gradpace-prototype/frontend:latest
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
