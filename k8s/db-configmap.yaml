@@ -1,0 +1,10 @@
+# Must stay identical to backend-config's DATABASE_NAME/DATABASE_USERNAME -
+# same requirement as .env.prod today (POSTGRES_* vs DATABASE_*).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+  namespace: gradpace
+data:
+  POSTGRES_DB: "gradpace_db"
+  POSTGRES_USER: "gradpace"

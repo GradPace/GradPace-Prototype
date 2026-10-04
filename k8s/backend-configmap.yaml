@@ -1,0 +1,23 @@
+# Non-secret env vars for the backend. Staging values point at the
+# gradpace-api-k3s.steyaert.xyz subdomain - swap ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS
+# to gradpace-api.steyaert.xyz at cutover (see the migration doc's phase list).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: gradpace
+data:
+  PIPELINE: "production"
+  ALLOWED_HOSTS: "gradpace-api-k3s.steyaert.xyz"
+  CSRF_TRUSTED_ORIGINS: "https://gradpace-api-k3s.steyaert.xyz"
+  DATABASE_ENGINE: "postgresql"
+  DATABASE_NAME: "gradpace_db"
+  DATABASE_USERNAME: "gradpace"
+  DATABASE_HOST: "db"
+  DATABASE_PORT: "5432"
+  EMAIL_BACKEND: "django.core.mail.backends.smtp.EmailBackend"
+  EMAIL_HOST: "mail"
+  EMAIL_PORT: "25"
+  EMAIL_HOST_USER: "noreply@gradpace.steyaert.xyz"
+  EMAIL_USE_TLS: "0"
+  DEFAULT_FROM_EMAIL: "noreply@gradpace.steyaert.xyz"
