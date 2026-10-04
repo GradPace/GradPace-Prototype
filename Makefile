@@ -58,7 +58,7 @@ restart: ## Force a rolling restart of every service in the stack
 # Refuses to run if any active node is still down, since forcing a redeploy
 # wouldn't move anything there and just churns the healthy node for nothing.
 rebalance: ## Redistribute backend/frontend tasks across swarm nodes (checks all active nodes are Ready first)
-	@not_ready=$$(docker node ls --filter availability=active --format '{{.Hostname}}: {{.Status}}' | grep -v ': Ready$$'); \
+	@not_ready=$$(docker node ls --format '{{.Hostname}} {{.Availability}} {{.Status}}' | awk '$$2 == "Active" && $$3 != "Ready"'); \
 	if [ -n "$$not_ready" ]; then \
 		echo "Refusing to rebalance - node(s) not Ready yet:"; \
 		echo "$$not_ready"; \
