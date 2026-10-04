@@ -63,7 +63,7 @@ spec:
               # header instead of widening ALLOWED_HOSTS app-wide.
               httpHeaders:
                 - name: Host
-                  value: gradpace-api-k3s.steyaert.xyz
+                  value: gradpace-api.steyaert.xyz
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
@@ -74,7 +74,7 @@ spec:
               port: 8000
               httpHeaders:
                 - name: Host
-                  value: gradpace-api-k3s.steyaert.xyz
+                  value: gradpace-api.steyaert.xyz
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5

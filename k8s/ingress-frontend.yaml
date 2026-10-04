@@ -1,5 +1,4 @@
-# Staging host - swap to gradpace.steyaert.xyz at cutover (see the migration
-# doc's phase list). Traefik is k3s's bundled default ingress controller.
+# Traefik is k3s's bundled default ingress controller.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -9,10 +8,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - gradpace-k3s.steyaert.xyz
+        - gradpace.steyaert.xyz
       secretName: steyaert-wildcard
   rules:
-    - host: gradpace-k3s.steyaert.xyz
+    - host: gradpace.steyaert.xyz
       http:
         paths:
           - path: /
