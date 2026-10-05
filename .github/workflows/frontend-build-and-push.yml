@@ -1,11 +1,12 @@
 name: Build and Push Frontend to GHCR
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Test and e2e"]
+    types:
+      - completed
     branches:
       - main
-    paths:
-      - 'frontend/**'
   workflow_dispatch:
 
 env:
@@ -16,50 +17,31 @@ env:
   IMAGE_NAME: gradpace/gradpace-prototype/frontend
 
 jobs:
-  test:
-    # Self-hosted: keeps growing test-suite minutes off the GH Actions quota.
-    # Only triggers on push to main right now (see `on:` above), not on PRs -
-    # if a pull_request trigger is ever added, self-hosted runners execute
-    # whatever the PR's workflow contains, so gate it to trusted authors.
-    runs-on: self-hosted
-
+  changes:
+    # Test and e2e runs once for a push touching backend/ and/or frontend/,
+    # and its completion triggers this workflow AND
+    # backend-build-and-push.yml both - without this check, a backend-only
+    # change would also rebuild/push/redeploy the frontend image for
+    # nothing.
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend || 'true' }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Set up Node
-        uses: actions/setup-node@v5
+      - name: Detect whether frontend/ actually changed
+        id: filter
+        if: github.event_name == 'workflow_run'
+        uses: dorny/paths-filter@v3
         with:
-          node-version: '26'
-
-      - name: Enable pnpm via corepack
-        # Node 26 no longer bundles Corepack, so it must be installed before it can be enabled.
-        run: |
-          npm install -g corepack
-          corepack enable
-
-      - name: Install dependencies
-        working-directory: frontend
-        run: pnpm install --frozen-lockfile
-
-      - name: Lint and typecheck
-        run: make test-frontend
-
-      - name: Prune pnpm store
-        # Runs even if lint/build fails. This is a persistent self-hosted
-        # box, so pnpm's store accumulates on disk across every run instead
-        # of getting thrown away like an ephemeral GH-hosted runner's would.
-        if: always()
-        run: pnpm store prune
-
-  e2e:
-    # Runs the real frontend against the real backend (see e2e-tests.yml) -
-    # gates this deploy the same way `test` does, since a frontend change
-    # can break the cross-app flow even when lint/typecheck/unit tests pass.
-    uses: ./.github/workflows/e2e-tests.yml
+          ref: ${{ github.event.workflow_run.head_sha }}
+          base: ${{ github.event.workflow_run.head_sha }}^
+          filters: |
+            frontend:
+              - 'frontend/**'
 
   build-and-push:
-    needs: [test, e2e]
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -68,6 +50,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Resolve the exact commit SHA that triggered this build
+        # See backend-build-and-push.yml's identical step for why this
+        # isn't just `github.sha`.
+        id: sha
+        run: |
+          echo "short=$(echo '${{ github.event.workflow_run.head_sha || github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -86,7 +77,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=sha,prefix=sha-
+            type=raw,value=sha-${{ steps.sha.outputs.short }}
             type=raw,value={{date 'YYYY-MM-DD-HHmmss' tz='America/New_York'}}
             type=raw,value=latest,enable={{is_default_branch}}
 

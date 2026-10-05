@@ -1,0 +1,121 @@
+name: Test and e2e
+
+# Runs once per push, regardless of whether a commit touches backend/,
+# frontend/, or both - backend-build-and-push.yml and
+# frontend-build-and-push.yml each used to run their own copy of the e2e
+# suite, so a commit touching both paths ran it twice on the same
+# self-hosted runner for no reason. This workflow is the single shared
+# gate both of those now wait on via workflow_run, same pattern
+# backend-deploy.yml/frontend-deploy.yml already use to wait on their
+# respective build-and-push workflow.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+  workflow_dispatch:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      # `|| 'true'` covers workflow_dispatch (no push context to diff, so
+      # the filter step below is skipped and its output is empty) - a
+      # manual run always exercises everything.
+      backend: ${{ steps.filter.outputs.backend || 'true' }}
+      frontend: ${{ steps.filter.outputs.frontend || 'true' }}
+    steps:
+      - name: Detect which app(s) changed
+        id: filter
+        if: github.event_name == 'push'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              # Docs-only changes (e.g. the schema diagram) shouldn't
+              # re-run backend tests/e2e/rebuild - nothing the container
+              # runs actually changed.
+              - '!backend/docs/**'
+            frontend:
+              - 'frontend/**'
+
+  test-backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    # Self-hosted: keeps growing test-suite minutes off the GH Actions quota.
+    # Only triggers on push to main right now (see `on:` above), not on PRs -
+    # if a pull_request trigger is ever added, self-hosted runners execute
+    # whatever the PR's workflow contains, so gate it to trusted authors.
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --locked
+
+      - name: Run checks, lint, and test suite
+        run: make test-backend
+
+      - name: Prune uv cache
+        # Runs even if tests fail. This is a persistent self-hosted box, so
+        # uv's cache accumulates on disk across every run instead of getting
+        # thrown away like an ephemeral GH-hosted runner's would.
+        if: always()
+        working-directory: backend
+        run: uv cache prune --ci
+
+  test-frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    # Same self-hosted/push-to-main-only reasoning as test-backend above.
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+
+      - name: Enable pnpm via corepack
+        # Node 26 no longer bundles Corepack, so it must be installed before it can be enabled.
+        run: |
+          npm install -g corepack
+          corepack enable
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint and typecheck
+        run: make test-frontend
+
+      - name: Prune pnpm store
+        # Runs even if lint/build fails. This is a persistent self-hosted
+        # box, so pnpm's store accumulates on disk across every run instead
+        # of getting thrown away like an ephemeral GH-hosted runner's would.
+        if: always()
+        run: pnpm store prune
+
+  e2e:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+    # Runs the real frontend against the real backend - a change in either
+    # app can break the cross-app flow even when its own lint/typecheck/
+    # unit tests pass, so this gates both backend-build-and-push.yml and
+    # frontend-build-and-push.yml (via their own workflow_run trigger),
+    # not just the one whose path actually changed.
+    uses: ./.github/workflows/e2e-tests.yml

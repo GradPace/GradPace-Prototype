@@ -21,9 +21,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    runs-on: self-hosted
+  changes:
+    # frontend-build-and-push.yml now runs (and reports success) on every
+    # push touching backend/ OR frontend/, even when its own build-and-push
+    # job skipped because frontend/ didn't actually change - without this
+    # check, a backend-only change would still trigger a deploy here,
+    # rolling out a sha-<...> tag whose image was never actually built or
+    # pushed (ImagePullBackOff, same class of bug this tag scheme exists
+    # to avoid in the first place).
+    runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend || 'true' }}
+    steps:
+      - name: Detect whether frontend/ actually changed
+        id: filter
+        if: github.event_name == 'workflow_run'
+        uses: dorny/paths-filter@v3
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          base: ${{ github.event.workflow_run.head_sha }}^
+          filters: |
+            frontend:
+              - 'frontend/**'
+
+  deploy:
+    needs: changes
+    runs-on: self-hosted
+    if: needs.changes.outputs.frontend == 'true'
     # Creates a GitHub Deployment for this run - the "GitHub for Jira" app
     # picks these up automatically and shows them on linked issues (e.g.
     # GP-29) under Deployments, so long as the commit/branch/PR references

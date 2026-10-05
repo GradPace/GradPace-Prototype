@@ -1,13 +1,14 @@
 name: E2E Tests
 
-# Invoked as a job from backend-build-and-push.yml and
-# frontend-build-and-push.yml (`uses: ./.github/workflows/e2e-tests.yml`) so
-# both can gate their build-and-push/deploy on it via `needs:` without
-# duplicating these steps in each file - either parent already only fires on
-# push to main (backend/** or frontend/** paths), which is what actually
-# decides when this runs that way. workflow_dispatch is there too so it can
-# also be run directly from the Actions tab, e.g. to check the e2e suite
-# without waiting for a qualifying push.
+# Invoked as a job from test-and-e2e.yml (`uses:
+# ./.github/workflows/e2e-tests.yml`) so it runs exactly once per push,
+# even when a commit touches both backend/ and frontend/ - backend-build-
+# and-push.yml and frontend-build-and-push.yml each used to call this
+# directly, running it twice for such a commit, before test-and-e2e.yml
+# became the single shared gate both of those wait on via workflow_run
+# instead. workflow_dispatch is there too so it can also be run directly
+# from the Actions tab, e.g. to check the e2e suite without waiting for a
+# qualifying push.
 on:
   workflow_call:
   workflow_dispatch:

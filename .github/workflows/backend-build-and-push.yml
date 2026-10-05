@@ -1,15 +1,12 @@
 name: Build and Push Backend to GHCR
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Test and e2e"]
+    types:
+      - completed
     branches:
       - main
-    paths:
-      - 'backend/**'
-      # Docs-only changes (e.g. the schema diagram) shouldn't rebuild/push/
-      # redeploy the image - nothing the container runs actually changed.
-      - '!backend/docs/**'
-
   workflow_dispatch:
 
 env:
@@ -20,45 +17,32 @@ env:
   IMAGE_NAME: gradpace/gradpace-prototype/backend
 
 jobs:
-  test:
-    # Self-hosted: keeps growing test-suite minutes off the GH Actions quota.
-    # Only triggers on push to main right now (see `on:` above), not on PRs -
-    # if a pull_request trigger is ever added, self-hosted runners execute
-    # whatever the PR's workflow contains, so gate it to trusted authors.
-    runs-on: self-hosted
-
+  changes:
+    # Test and e2e runs once for a push touching backend/ and/or frontend/,
+    # and its completion triggers this workflow AND
+    # frontend-build-and-push.yml both - without this check, a
+    # frontend-only change would also rebuild/push/redeploy the backend
+    # image for nothing.
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    outputs:
+      backend: ${{ steps.filter.outputs.backend || 'true' }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.1.0
+      - name: Detect whether backend/ actually changed
+        id: filter
+        if: github.event_name == 'workflow_run'
+        uses: dorny/paths-filter@v3
         with:
-          python-version: "3.14"
-
-      - name: Install dependencies
-        working-directory: backend
-        run: uv sync --locked
-
-      - name: Run checks, lint, and test suite
-        run: make test-backend
-
-      - name: Prune uv cache
-        # Runs even if tests fail. This is a persistent self-hosted box, so
-        # uv's cache accumulates on disk across every run instead of getting
-        # thrown away like an ephemeral GH-hosted runner's would.
-        if: always()
-        working-directory: backend
-        run: uv cache prune --ci
-
-  e2e:
-    # Runs the real frontend against the real backend (see e2e-tests.yml) -
-    # a backend-only change can still break the cross-app flow, so this
-    # gates the backend deploy too, not just the frontend one.
-    uses: ./.github/workflows/e2e-tests.yml
+          ref: ${{ github.event.workflow_run.head_sha }}
+          base: ${{ github.event.workflow_run.head_sha }}^
+          filters: |
+            backend:
+              - 'backend/**'
+              - '!backend/docs/**'
 
   build-and-push:
-    needs: [test, e2e]
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -67,9 +51,22 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Resolve the exact commit SHA that triggered this build
+        # github.sha in a workflow_run-triggered job is documented as "the
+        # most recent commit on the default branch at run time", not
+        # necessarily the commit that actually triggered this run - using
+        # workflow_run.head_sha (with a github.sha fallback for
+        # workflow_dispatch) avoids tagging the wrong commit's image if
+        # another push lands in between.
+        id: sha
+        run: |
+          echo "short=$(echo '${{ github.event.workflow_run.head_sha || github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4 
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -85,7 +82,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=sha,prefix=sha-
+            type=raw,value=sha-${{ steps.sha.outputs.short }}
             type=raw,value={{date 'YYYY-MM-DD-HHmmss' tz='America/New_York'}}
             type=raw,value=latest,enable={{is_default_branch}}
 
