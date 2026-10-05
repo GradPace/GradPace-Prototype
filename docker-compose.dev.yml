@@ -33,7 +33,10 @@ services:
 
   # Frontend - Vite dev server with HMR.
   # Runs straight from a node image (not frontend/Dockerfile, which is the
-  # lean prod build serving a static bundle via nginx).
+  # lean prod build serving a static bundle via nginx). The apk packages in
+  # `command` are canvas's (added for jsdom's toDataURL in Hero.test.tsx)
+  # own documented Alpine build deps - it has no prebuilt musl binary, so
+  # pnpm install falls back to node-gyp rebuild without them.
   frontend:
     image: node:26-alpine
     working_dir: /app
@@ -42,7 +45,9 @@ services:
       # which `docker compose up -d` never attaches - it just hangs forever.
       - COREPACK_ENABLE_DOWNLOAD_PROMPT=0
     command: >
-      sh -c "npm install -g corepack &&
+      sh -c "apk add --no-cache python3 make g++ pkgconfig
+             cairo-dev pango-dev jpeg-dev giflib-dev librsvg-dev &&
+             npm install -g corepack &&
              corepack enable &&
              pnpm install &&
              pnpm dev --host"

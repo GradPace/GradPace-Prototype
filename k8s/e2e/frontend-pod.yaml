@@ -26,7 +26,15 @@ spec:
       command:
         - sh
         - -c
-        - npm install -g corepack && corepack enable && pnpm install && pnpm dev --host
+        # canvas (added for jsdom's toDataURL in Hero.test.tsx) has no
+        # prebuilt binary for musl/Alpine, so pnpm install falls back to
+        # node-gyp rebuild - these are node-canvas's own documented Alpine
+        # build deps for that to succeed. Same packages docker-compose.dev.yml
+        # installs for the same reason.
+        - >-
+          apk add --no-cache python3 make g++ pkgconfig
+          cairo-dev pango-dev jpeg-dev giflib-dev librsvg-dev &&
+          npm install -g corepack && corepack enable && pnpm install && pnpm dev --host
       volumeMounts:
         - name: checkout
           mountPath: /app
