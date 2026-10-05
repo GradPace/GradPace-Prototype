@@ -17,6 +17,11 @@ Thumbs.db
 !.env.dev
 !.env.prod.example
 !frontend/.env.example
+# Vite's own convention: .env.[mode] is a committed default, distinct from
+# .env.[mode].local for real per-developer overrides. Without this, a fresh
+# checkout has no VITE_API_URL in dev - every frontend API call hits literal
+# "undefined/api/..." (this is what broke e2e's signup flow).
+!frontend/.env.development
 *.pem
 *.key
 
