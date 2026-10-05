@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly CI disk cleanup
+
+[Timer]
+# Sunday 04:00 local - the quietest time for pushes. Persistent catches up
+# after a reboot that skipped a run.
+OnCalendar=Sun *-*-* 04:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -122,6 +122,8 @@ prototype/
 │       ├── components/   # Navbar, Hero, etc.
 │       └── lib/api/      # apiFetch/apiGet - the REST client
 ├── e2e/                 # Playwright suite - runs frontend + backend together
+├── infra/nodes/         # Host-level config for the k3s nodes (disk limits,
+│                          # cleanup timer) - installed by hand, see its README
 ├── k8s/                 # Production k3s manifests
 │   └── e2e/              # Throwaway manifests for `make test-e2e` only -
 │                          # not part of the real deploy
