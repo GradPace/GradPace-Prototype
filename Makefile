@@ -1,18 +1,16 @@
 .PHONY: help deploy deploy-backend deploy-frontend rollback-backend rollback-frontend up down restart logs logs-backend logs-frontend logs-db logs-mail check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend-unit test-frontend test-e2e test docs schema-diagram clean
 
-# Prod runs on a Docker Swarm (two nodes) - `docker stack deploy`, not plain
-# `docker compose up`, so it can honor docker-compose.prod.yml's `deploy:`
-# placement constraints and actually schedule across both nodes. Dev is a
-# single host with no swarm, so it stays on plain `docker compose`.
-STACK = gradpace
+# Prod runs on k3s (see k8s/) - kubectl against that cluster, not Docker
+# Swarm. Dev is still a single host with plain `docker compose`.
+NAMESPACE = gradpace
 DEV_COMPOSE = docker compose -f docker-compose.dev.yml
 REGISTRY_IMAGE = ghcr.io/gradpace/gradpace-prototype
 
-# deploy-frontend/deploy-backend pin to this tag instead of `:latest` - a
-# `:latest` update can no-op if Swarm doesn't see the tag string itself
-# change, even though the digest behind it moved. CI passes TAG=sha-<short
-# sha> (see frontend-deploy.yml/backend-deploy.yml) so every deploy targets
-# a distinct, unambiguous image reference. Defaults to latest for manual use.
+# deploy-frontend/deploy-backend pin to this tag instead of `:latest` so
+# `kubectl set image` always sees a changed image reference. CI passes
+# TAG=sha-<short sha> (see frontend-deploy.yml/backend-deploy.yml) so every
+# deploy targets a distinct, unambiguous image. Defaults to latest for
+# manual use.
 TAG ?= latest
 
 help: ## Show this help message
@@ -21,48 +19,47 @@ help: ## Show this help message
 	@echo 'Available targets:'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-deploy: ## Deploy/update the full stack (re-resolves latest image digests)
-	docker stack deploy --with-registry-auth -c docker-compose.prod.yml $(STACK)
+deploy: ## Apply/update every manifest in k8s/ against the cluster
+	kubectl apply -f k8s/
 
 up-dev: ## Start dev compose
 	$(DEV_COMPOSE) up -d && \
 	docker image prune -af
 
-deploy-frontend: ## Force a fresh pull + redeploy of just the frontend service. Pass TAG=<tag> to pin a build (defaults to latest)
-	docker service update --with-registry-auth --force --image $(REGISTRY_IMAGE)/frontend:$(TAG) $(STACK)_frontend
+deploy-frontend: ## Roll the frontend deployment to TAG=<tag> (defaults to latest) and wait for it to finish
+	kubectl set image deployment/frontend frontend=$(REGISTRY_IMAGE)/frontend:$(TAG) -n $(NAMESPACE)
+	kubectl rollout status deployment/frontend -n $(NAMESPACE)
 
-deploy-backend: ## Force a fresh pull + redeploy of just the backend service. Pass TAG=<tag> to pin a build (defaults to latest)
-	docker service update --with-registry-auth --force --image $(REGISTRY_IMAGE)/backend:$(TAG) $(STACK)_backend
+deploy-backend: ## Roll the backend deployment to TAG=<tag> (defaults to latest) and wait for it to finish
+	kubectl set image deployment/backend backend=$(REGISTRY_IMAGE)/backend:$(TAG) -n $(NAMESPACE)
+	kubectl rollout status deployment/backend -n $(NAMESPACE)
 
-rollback-frontend: ## Roll the frontend service back to its previous version
-	docker service rollback $(STACK)_frontend
+rollback-frontend: ## Roll the frontend deployment back to its previous revision
+	kubectl rollout undo deployment/frontend -n $(NAMESPACE)
 
-rollback-backend: ## Roll the backend service back to its previous version
-	docker service rollback $(STACK)_backend
+rollback-backend: ## Roll the backend deployment back to its previous revision
+	kubectl rollout undo deployment/backend -n $(NAMESPACE)
 
-down: ## Remove the entire stack
-	docker stack rm $(STACK)
+down: ## Delete every resource in k8s/ from the cluster
+	kubectl delete -f k8s/
 
 down-dev: ## Stop and remove services
 	$(DEV_COMPOSE) down
 
-restart: ## Force a rolling restart of every service in the stack
-	docker service update --force $(STACK)_backend
-	docker service update --force $(STACK)_frontend
-	docker service update --force $(STACK)_db
-	docker service update --force $(STACK)_mail
+restart: ## Force a rolling restart of every deployment/statefulset in the stack
+	kubectl rollout restart deployment/backend deployment/frontend deployment/mail statefulset/db -n $(NAMESPACE)
 
-logs-backend: ## Tail logs from the backend service
-	docker service logs -f $(STACK)_backend
+logs-backend: ## Tail logs from the backend deployment
+	kubectl logs -f deployment/backend -n $(NAMESPACE)
 
-logs-frontend: ## Tail logs from the frontend service
-	docker service logs -f $(STACK)_frontend
+logs-frontend: ## Tail logs from the frontend deployment
+	kubectl logs -f deployment/frontend -n $(NAMESPACE)
 
-logs-db: ## Tail logs from the db service
-	docker service logs -f $(STACK)_db
+logs-db: ## Tail logs from the db statefulset
+	kubectl logs -f statefulset/db -n $(NAMESPACE)
 
-logs-mail: ## Tail logs from the mail service
-	docker service logs -f $(STACK)_mail
+logs-mail: ## Tail logs from the mail deployment
+	kubectl logs -f deployment/mail -n $(NAMESPACE)
 
 logs: logs-backend ## Tail logs from the backend service (see logs-frontend/logs-db/logs-mail for the others)
 

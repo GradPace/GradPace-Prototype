@@ -7,6 +7,7 @@ version: 2
 updates:
   - package-ecosystem: "uv" # See documentation for possible values
     directory: "backend/" # Location of package manifests
+    versioning-strategy: increase-if-necessary # bump pyproject.toml's floor when a release would fall outside the existing >= constraint
     schedule:
       interval: "weekly"
       day: "monday"

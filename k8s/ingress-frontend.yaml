@@ -1,0 +1,23 @@
+# Traefik is k3s's bundled default ingress controller.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: gradpace
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - gradpace.steyaert.xyz
+      secretName: steyaert-wildcard
+  rules:
+    - host: gradpace.steyaert.xyz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 8080
