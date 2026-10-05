@@ -42,7 +42,7 @@ spec:
         priorityClassName: ci-low
         containers:
           - name: runner
-            image: ghcr.io/gradpace/actions-runner:sha-5970545
+            image: ghcr.io/gradpace/actions-runner:sha-b95d900
             command: ["/home/runner/run.sh"]
             resources:
               requests: {cpu: 250m, memory: 1Gi}
@@ -87,7 +87,7 @@ spec:
           kubernetes.io/hostname: steyaert-worker
         containers:
           - name: runner
-            image: ghcr.io/gradpace/actions-runner:sha-5970545
+            image: ghcr.io/gradpace/actions-runner:sha-b95d900
             command: ["/home/runner/run.sh"]
             resources:
               requests: {cpu: 100m, memory: 256Mi}
@@ -130,7 +130,7 @@ spec:
           kubernetes.io/hostname: steyaert-worker
         containers:
           - name: runner
-            image: ghcr.io/gradpace/actions-runner:sha-5970545
+            image: ghcr.io/gradpace/actions-runner:sha-b95d900
             command: ["/home/runner/run.sh"]
             resources:
               requests: {cpu: 100m, memory: 256Mi}
