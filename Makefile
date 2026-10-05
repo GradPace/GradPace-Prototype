@@ -1,4 +1,4 @@
-.PHONY: help deploy deploy-backend deploy-frontend rollback-backend rollback-frontend up down restart logs logs-backend logs-frontend logs-db logs-mail check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend test docs schema-diagram clean
+.PHONY: help deploy deploy-backend deploy-frontend rollback-backend rollback-frontend up down restart logs logs-backend logs-frontend logs-db logs-mail check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend-unit test-frontend test-e2e test docs schema-diagram clean
 
 # Prod runs on k3s (see k8s/) - kubectl against that cluster, not Docker
 # Swarm. Dev is still a single host with plain `docker compose`.
@@ -89,9 +89,19 @@ typecheck-frontend: ## Type-check the frontend (no build output)
 build-frontend: ## Build the frontend for production (writes frontend/dist)
 	cd frontend && pnpm build
 
-# TODO: no frontend test runner yet - once one exists, add its command here
-# alongside lint/typecheck.
-test-frontend: lint-frontend typecheck-frontend ## Run everything for the frontend: lint + typecheck
+test-frontend-unit: ## Run the frontend's Vitest unit/component suite
+	cd frontend && pnpm test
+
+test-frontend: lint-frontend typecheck-frontend test-frontend-unit ## Run everything for the frontend: lint + typecheck + unit tests
+
+test-e2e: ## Run Playwright e2e tests against the dev stack (wipes backend/db.sqlite3 before and after)
+	rm -f backend/db.sqlite3
+	trap '$(DEV_COMPOSE) down; rm -f backend/db.sqlite3' EXIT; \
+	$(DEV_COMPOSE) up -d && \
+	wait_for() { i=0; until curl -sf "$$1" >/dev/null; do i=$$((i+1)); [ $$i -ge 60 ] && echo "$$1 did not become healthy in time" >&2 && exit 1; sleep 1; done; }; \
+	wait_for http://localhost:8000/core/healthcheck/ && \
+	wait_for http://localhost:5173/ && \
+	(cd e2e && pnpm exec playwright test)
 
 # Local convenience only - runs both toolchains, so it needs uv AND
 # node/pnpm available. CI jobs call test-backend / test-frontend separately

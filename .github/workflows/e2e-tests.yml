@@ -1,0 +1,68 @@
+name: E2E Tests
+
+# Invoked as a job from backend-build-and-push.yml and
+# frontend-build-and-push.yml (`uses: ./.github/workflows/e2e-tests.yml`) so
+# both can gate their build-and-push/deploy on it via `needs:` without
+# duplicating these steps in each file - either parent already only fires on
+# push to main (backend/** or frontend/** paths), which is what actually
+# decides when this runs that way. workflow_dispatch is there too so it can
+# also be run directly from the Actions tab, e.g. to check the e2e suite
+# without waiting for a qualifying push.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    # Same self-hosted/push-to-main-only reasoning as the `test` jobs in the
+    # parent workflows: self-hosted keeps growing test-suite minutes off the
+    # GH Actions quota, and this only ever runs from a push-to-main trigger,
+    # never a PR, so there's no untrusted-workflow-content risk.
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+
+      - name: Enable pnpm via corepack
+        # Node 26 no longer bundles Corepack, so it must be installed before it can be enabled.
+        run: |
+          npm install -g corepack
+          corepack enable
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright's Chromium build
+        working-directory: e2e
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run e2e suite against the dev stack
+        # docker-compose.dev.yml builds/runs both apps fresh from this
+        # checkout - the runner itself only needs Docker (already present,
+        # it's the same host that runs `docker stack deploy`) and pnpm/
+        # Playwright for the test runner itself.
+        run: make test-e2e
+
+      - name: Sweep stale Playwright browser builds
+        # Runs even if the suite fails. Single self-hosted host (no shared
+        # cache across runner replicas), so this just keeps the newest build
+        # of each browser family `playwright install` above would reuse and
+        # drops the rest - no need for the mtime-based "untouched N hours"
+        # safety margin a multi-replica setup sharing the cache would need.
+        if: always()
+        run: |
+          PW="$HOME/.cache/ms-playwright"
+          if [ -d "$PW" ]; then
+            for prefix in chromium chromium_headless_shell firefox webkit ffmpeg; do
+              ls -1dt "$PW/$prefix-"* 2>/dev/null | tail -n +2 | xargs -r rm -rf
+            done
+          else
+            echo "cache-sweep: $PW not found, skipping Playwright sweep"
+          fi
