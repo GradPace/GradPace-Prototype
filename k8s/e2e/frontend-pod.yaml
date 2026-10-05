@@ -30,6 +30,8 @@ spec:
       volumeMounts:
         - name: checkout
           mountPath: /app
+        # Persistent hostPath, not emptyDir - see backend-pod.yaml. A cold
+        # pnpm install here is what actually blew the 60s health-check wait.
         - name: node-modules
           mountPath: /app/node_modules
   volumes:
@@ -38,4 +40,6 @@ spec:
         path: __CHECKOUT_PATH__/frontend
         type: Directory
     - name: node-modules
-      emptyDir: {}
+      hostPath:
+        path: /srv/e2e-cache/frontend-node-modules
+        type: DirectoryOrCreate

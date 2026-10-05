@@ -41,9 +41,12 @@ spec:
       volumeMounts:
         - name: checkout
           mountPath: /app
-        # Separate emptyDirs so the venv/pycache don't get written back into
-        # the actual checkout on the host - same reasoning as the named
-        # docker volumes in docker-compose.dev.yml.
+        # Persistent hostPath dirs, not emptyDir - same role the named
+        # docker volumes played in docker-compose.dev.yml: keep venv/
+        # pycache off the actual checkout AND reused across e2e runs
+        # instead of a cold `uv sync` every single time (an emptyDir here
+        # is wiped on every pod create, which on a slow registry connection
+        # pushed `make test-e2e`'s health-check wait past its timeout).
         - name: venv
           mountPath: /app/.venv
         - name: pycache
@@ -54,6 +57,10 @@ spec:
         path: __CHECKOUT_PATH__/backend
         type: Directory
     - name: venv
-      emptyDir: {}
+      hostPath:
+        path: /srv/e2e-cache/backend-venv
+        type: DirectoryOrCreate
     - name: pycache
-      emptyDir: {}
+      hostPath:
+        path: /srv/e2e-cache/backend-pycache
+        type: DirectoryOrCreate

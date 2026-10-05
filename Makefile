@@ -105,7 +105,7 @@ test-e2e: ## Run Playwright e2e tests against a throwaway k3s namespace (wipes b
 	kubectl apply -f k8s/e2e/namespace.yaml && \
 	sed "s#__CHECKOUT_PATH__#$(CURDIR)#g" k8s/e2e/backend-pod.yaml | kubectl apply -f - && \
 	sed "s#__CHECKOUT_PATH__#$(CURDIR)#g" k8s/e2e/frontend-pod.yaml | kubectl apply -f - && \
-	wait_for() { i=0; until curl -sf "$$1" >/dev/null; do i=$$((i+1)); [ $$i -ge 60 ] && echo "$$1 did not become healthy in time" >&2 && exit 1; sleep 1; done; }; \
+	wait_for() { i=0; until curl -sf "$$1" >/dev/null; do i=$$((i+1)); [ $$i -ge 180 ] && echo "$$1 did not become healthy in time" >&2 && exit 1; sleep 1; done; }; \
 	wait_for http://localhost:8000/core/healthcheck/ && \
 	wait_for http://localhost:5173/ && \
 	(cd e2e && pnpm exec playwright test)
