@@ -38,6 +38,15 @@ spec:
           value: /app/.venv
         - name: PYTHONPYCACHEPREFIX
           value: /pycache
+      # Small requests so these pods aren't BestEffort (first evicted, last
+      # to get CPU) on a busy steyaert-mgr; limits cap a runaway uv sync.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: "1"
+          memory: 768Mi
       volumeMounts:
         - name: checkout
           mountPath: /app

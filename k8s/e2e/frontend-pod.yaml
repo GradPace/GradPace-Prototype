@@ -35,6 +35,15 @@ spec:
           apk add --no-cache python3 make g++ pkgconfig
           cairo-dev pango-dev jpeg-dev giflib-dev librsvg-dev &&
           npm install -g corepack && corepack enable && pnpm install && pnpm dev --host
+      # See backend-pod.yaml. Higher memory limit than the backend: a cold
+      # pnpm install plus canvas's g++ compile is the heaviest moment.
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          cpu: "1"
+          memory: 1536Mi
       volumeMounts:
         - name: checkout
           mountPath: /app
