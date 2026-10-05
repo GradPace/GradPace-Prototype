@@ -1,8 +1,9 @@
 name: Build Runner Image
 
-# Builds the image the ARC runner pools run on (infra/runner-image/). Runs on
-# a GitHub-hosted runner: the cluster's runners run *on* this image, so the
-# first build can't come from them.
+# Builds the image the ARC runner pools run on (infra/runner-image/). Stays on
+# a GitHub-hosted runner on purpose, the only GradPace job that does: the
+# cluster's runners run *on* this image, so if a bad image ever broke the
+# pools, this is how the fix ships.
 on:
   push:
     branches:

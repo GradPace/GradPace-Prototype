@@ -23,7 +23,7 @@ jobs:
     # frontend-build-and-push.yml both - without this check, a
     # frontend-only change would also rebuild/push/redeploy the backend
     # image for nothing.
-    runs-on: ubuntu-latest
+    runs-on: gradpace-light
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       actions: read
@@ -51,7 +51,9 @@ jobs:
   build-and-push:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
+    # The runner pod only hands the build to the shared BuildKit builder
+    # (infra/arc/buildkit.yaml), which keeps the layer cache.
+    runs-on: gradpace-build
     permissions:
       contents: read
       packages: write
@@ -73,8 +75,11 @@ jobs:
         run: |
           echo "short=$(echo '${{ github.event.workflow_run.head_sha || github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
 
-      - name: Set up Docker Buildx
+      - name: Use the shared builder
         uses: docker/setup-buildx-action@v4
+        with:
+          driver: remote
+          endpoint: tcp://buildkitd.arc-runners:1234
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -102,6 +107,4 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64

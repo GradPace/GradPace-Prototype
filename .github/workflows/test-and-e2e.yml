@@ -19,7 +19,7 @@ on:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: gradpace-light
     outputs:
       # `|| 'true'` covers workflow_dispatch (no push context to diff, so
       # the filter step below is skipped and its output is empty) - a
@@ -56,11 +56,12 @@ jobs:
   test-backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    # Self-hosted: keeps growing test-suite minutes off the GH Actions quota.
-    # Only triggers on push to main right now (see `on:` above), not on PRs -
-    # if a pull_request trigger is ever added, self-hosted runners execute
-    # whatever the PR's workflow contains, so gate it to trusted authors.
-    runs-on: self-hosted
+    # A fresh runner pod in the cluster (infra/arc/), deleted after the job,
+    # so caches don't need pruning. Only triggers on push to main and manual
+    # runs, not PRs - if a pull_request trigger is ever added, self-hosted
+    # runners execute whatever the PR's workflow contains, so gate it to
+    # trusted authors.
+    runs-on: gradpace-light
 
     steps:
       - name: Checkout repository
@@ -78,19 +79,11 @@ jobs:
       - name: Run checks, lint, and test suite
         run: make test-backend
 
-      - name: Prune uv cache
-        # Runs even if tests fail. This is a persistent self-hosted box, so
-        # uv's cache accumulates on disk across every run instead of getting
-        # thrown away like an ephemeral GH-hosted runner's would.
-        if: always()
-        working-directory: backend
-        run: uv cache prune --ci
-
   test-frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    # Same self-hosted/push-to-main-only reasoning as test-backend above.
-    runs-on: self-hosted
+    # Same runner-pod/push-to-main-only reasoning as test-backend above.
+    runs-on: gradpace-light
 
     steps:
       - name: Checkout repository
@@ -113,13 +106,6 @@ jobs:
 
       - name: Lint and typecheck
         run: make test-frontend
-
-      - name: Prune pnpm store
-        # Runs even if lint/build fails. This is a persistent self-hosted
-        # box, so pnpm's store accumulates on disk across every run instead
-        # of getting thrown away like an ephemeral GH-hosted runner's would.
-        if: always()
-        run: pnpm store prune
 
   e2e:
     needs: changes
