@@ -15,7 +15,6 @@ Thumbs.db
 .env
 .env.*
 !.env.dev
-!.env.prod.example
 !frontend/.env.example
 # Vite's own convention: .env.[mode] is a committed default, distinct from
 # .env.[mode].local for real per-developer overrides. Without this, a fresh

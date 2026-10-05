@@ -15,8 +15,8 @@ on:
 env:
   REGISTRY: ghcr.io
   # Hardcoded lowercase: GHCR repo refs must be all-lowercase, but this repo's
-  # actual name (github.repository) is mixed-case, and must match what
-  # docker-compose.prod.yml pulls (ghcr.io/gradpace/gradpace-prototype/backend).
+  # actual name (github.repository) is mixed-case, and must match the image
+  # k8s/backend-deployment.yaml pulls (ghcr.io/gradpace/gradpace-prototype/backend).
   IMAGE_NAME: gradpace/gradpace-prototype/backend
 
 jobs:

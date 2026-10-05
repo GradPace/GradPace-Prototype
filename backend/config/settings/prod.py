@@ -11,9 +11,11 @@ DEBUG = False
 raw_hosts = get_secret('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = [host.strip() for host in raw_hosts.split(',') if host.strip()]
 
-# docker-compose.prod.yml's healthcheck hits localhost:8000 from inside the
-# container - only reachable there, never from the internet, so allowing it
-# unconditionally doesn't widen what's actually exposed.
+# Originally for docker-compose.prod.yml's internal healthcheck (now
+# removed - k8s/backend-deployment.yaml's readiness/liveness probes
+# override the Host header instead of relying on this, see its comments).
+# Left in since 'localhost' is only ever reachable from inside the pod
+# itself anyway, so it doesn't widen what's actually exposed either way.
 ALLOWED_HOSTS.append('localhost')
 
 
@@ -71,10 +73,10 @@ DATABASES = {
 # Security - behind an HTTPS-terminating reverse proxy.
 
 SECURE_SSL_REDIRECT = True
-# The healthcheck (docker-compose.prod.yml) hits localhost:8000 over plain
-# HTTP from inside the container, where nothing terminates TLS - without
-# this it 301s to https, which then fails to connect, so Docker sees it as
-# unhealthy even though the app is fine.
+# k8s/backend-deployment.yaml's readiness/liveness probes hit this path
+# over plain HTTP from inside the pod, where nothing terminates TLS -
+# without this it 301s to https, which then fails to connect, so k8s sees
+# it as unhealthy even though the app is fine.
 SECURE_REDIRECT_EXEMPT = [r'^core/healthcheck/$']
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True

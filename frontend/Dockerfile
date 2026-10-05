@@ -35,9 +35,9 @@ RUN pnpm build
 
 
 # ---- Stage 2: serve the bundle ----
-# Just the static files behind a minimal nginx - the existing nginx-proxy
-# reverse-proxies to this container via VIRTUAL_HOST/VIRTUAL_PORT, same
-# pattern as the backend service in docker-compose.prod.yml.
+# Just the static files behind a minimal nginx - k8s/ingress-frontend.yaml's
+# Traefik Ingress routes gradpace.steyaert.xyz to this container's :8080
+# via k8s/frontend-service.yaml, same pattern as the backend's own Ingress.
 #
 # The "unprivileged" image runs as a non-root user out of the box (uid 101)
 # and listens on 8080 instead of 80, since binding <1024 needs root.

@@ -67,4 +67,4 @@ volumes:
 
 # No db / mail services: dev.py uses sqlite and the console email backend.
 # To develop against Postgres instead, point dev.py's DATABASES at a `db`
-# service here and add one (see docker-compose.prod.yml for the shape).
+# service here and add one (see k8s/db-statefulset.yaml for the shape).
