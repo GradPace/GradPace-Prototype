@@ -1,0 +1,12 @@
+# arc-systems: the ARC controller. arc-runners: runner pools, their
+# listeners, the GitHub App secrets and (phase 3) the shared BuildKit
+# builder.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: arc-systems
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: arc-runners
