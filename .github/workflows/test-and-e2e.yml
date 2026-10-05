@@ -28,12 +28,11 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend || 'true' }}
     steps:
       - name: Checkout repository
-        # dorny/paths-filter needs a local .git to diff against for a plain
-        # push event (unlike the workflow_run-triggered filters in
-        # backend-build-and-push.yml etc, which pass explicit base/ref SHAs
-        # and don't need this) - fetch-depth 2 is enough for a single-commit
-        # push's parent, but 0 (full history) costs little on this repo and
-        # survives a multi-commit push without edge cases.
+        # dorny/paths-filter needs a local .git for anything but a
+        # pull_request event. Full history (fetch-depth 0) so it can diff
+        # against the push's `before` SHA even for a multi-commit push.
+        # The downstream build-and-push workflows don't re-diff - they ask
+        # this run's API for whether test-backend/test-frontend ran.
         if: github.event_name == 'push'
         uses: actions/checkout@v6
         with:

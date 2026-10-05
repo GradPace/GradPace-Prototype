@@ -25,20 +25,28 @@ jobs:
     # image for nothing.
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      actions: read
     outputs:
       backend: ${{ steps.filter.outputs.backend || 'true' }}
     steps:
-      - name: Detect whether backend/ actually changed
+      - name: Check whether Test and e2e actually tested backend/
+        # test-and-e2e.yml already path-filtered this push - its
+        # test-backend job only runs (rather than skips) when backend/
+        # changed, so reuse that answer instead of re-diffing here.
         id: filter
         if: github.event_name == 'workflow_run'
-        uses: dorny/paths-filter@v3
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          base: ${{ github.event.workflow_run.head_sha }}^
-          filters: |
-            backend:
-              - 'backend/**'
-              - '!backend/docs/**'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conclusion=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs" \
+            --jq '.jobs[] | select(.name == "test-backend") | .conclusion')
+          echo "test-backend conclusion: ${conclusion:-<none>}"
+          if [ "$conclusion" = "success" ]; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+          fi
 
   build-and-push:
     needs: changes

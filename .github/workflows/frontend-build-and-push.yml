@@ -25,19 +25,26 @@ jobs:
     # nothing.
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      actions: read
     outputs:
       frontend: ${{ steps.filter.outputs.frontend || 'true' }}
     steps:
-      - name: Detect whether frontend/ actually changed
+      - name: Check whether Test and e2e actually tested frontend/
+        # See backend-build-and-push.yml's identical step.
         id: filter
         if: github.event_name == 'workflow_run'
-        uses: dorny/paths-filter@v3
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          base: ${{ github.event.workflow_run.head_sha }}^
-          filters: |
-            frontend:
-              - 'frontend/**'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conclusion=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs" \
+            --jq '.jobs[] | select(.name == "test-frontend") | .conclusion')
+          echo "test-frontend conclusion: ${conclusion:-<none>}"
+          if [ "$conclusion" = "success" ]; then
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "frontend=false" >> "$GITHUB_OUTPUT"
+          fi
 
   build-and-push:
     needs: changes
