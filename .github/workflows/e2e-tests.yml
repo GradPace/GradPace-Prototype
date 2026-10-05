@@ -12,6 +12,14 @@ on:
   workflow_call:
   workflow_dispatch:
 
+concurrency:
+  # Only one self-hosted runner exists, so these already serialize in
+  # practice - this just makes that explicit and keeps a second e2e run
+  # from fighting the first over the gradpace-e2e namespace/hostNetwork
+  # ports if that ever changes.
+  group: e2e-tests
+  cancel-in-progress: false
+
 jobs:
   e2e:
     # Same self-hosted/push-to-main-only reasoning as the `test` jobs in the
@@ -40,14 +48,21 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright's Chromium build
+        # No --with-deps here - that apt-get installs Chromium's OS-level
+        # libraries, which needs root the `deploy` CI user doesn't have.
+        # Those libs are installed once, out-of-band, directly on the host
+        # (see the runbook note in k8s/e2e/README.md) - this step only
+        # downloads the browser binary itself into ~/.cache/ms-playwright,
+        # which needs no elevated privileges.
         working-directory: e2e
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium
 
       - name: Run e2e suite against the dev stack
-        # docker-compose.dev.yml builds/runs both apps fresh from this
-        # checkout - the runner itself only needs Docker (already present,
-        # it's the same host that runs `docker stack deploy`) and pnpm/
-        # Playwright for the test runner itself.
+        # k8s/e2e/ builds/runs both apps fresh from this checkout as
+        # throwaway pods in the k3s cluster (see Makefile's test-e2e target)
+        # - the runner itself only needs kubectl (already present, it's the
+        # same host as the k3s control plane) and pnpm/Playwright for the
+        # test runner itself.
         run: make test-e2e
 
       - name: Sweep stale Playwright browser builds

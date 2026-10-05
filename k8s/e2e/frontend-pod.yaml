@@ -1,0 +1,41 @@
+# Throwaway e2e dev frontend - same image/command docker-compose.dev.yml's
+# frontend service used, just as a pod instead of a compose service. See
+# backend-pod.yaml for __CHECKOUT_PATH__/hostNetwork/nodeSelector reasoning.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: gradpace-e2e
+  labels:
+    app: e2e-frontend
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: steyaert-mgr
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  restartPolicy: Never
+  containers:
+    - name: frontend
+      image: node:26-alpine
+      workingDir: /app
+      env:
+        # Without this, corepack's first-run download prompt waits on
+        # stdin, which a detached pod never attaches - it just hangs.
+        - name: COREPACK_ENABLE_DOWNLOAD_PROMPT
+          value: "0"
+      command:
+        - sh
+        - -c
+        - npm install -g corepack && corepack enable && pnpm install && pnpm dev --host
+      volumeMounts:
+        - name: checkout
+          mountPath: /app
+        - name: node-modules
+          mountPath: /app/node_modules
+  volumes:
+    - name: checkout
+      hostPath:
+        path: __CHECKOUT_PATH__/frontend
+        type: Directory
+    - name: node-modules
+      emptyDir: {}

@@ -1,0 +1,8 @@
+# Throwaway namespace for the e2e suite's dev-stack pods (see
+# backend-pod.yaml/frontend-pod.yaml) - created and deleted around every
+# e2e run by `make test-e2e`, never applied as part of the real prod stack
+# in k8s/.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gradpace-e2e

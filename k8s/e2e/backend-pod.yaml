@@ -1,0 +1,59 @@
+# Throwaway e2e dev backend - same image/command docker-compose.dev.yml's
+# backend service used, just as a pod instead of a compose service (see
+# backend/Dockerfile.dev's base image; graphviz isn't needed here since e2e
+# never calls `manage.py graph_models`). `make test-e2e` applies this with
+# __CHECKOUT_PATH__ substituted for the actual checkout dir (sed, since
+# hostPath can't reference an env var directly) and deletes the whole
+# gradpace-e2e namespace afterward.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backend
+  namespace: gradpace-e2e
+  labels:
+    app: e2e-backend
+spec:
+  # Pinned to steyaert-mgr - the self-hosted e2e runner lives on this same
+  # node, so __CHECKOUT_PATH__ (its own GitHub Actions workspace for this
+  # job) is actually present as a hostPath here. Without this, the scheduler
+  # could place the pod on steyaert-worker, where that path doesn't exist.
+  nodeSelector:
+    kubernetes.io/hostname: steyaert-mgr
+  # hostNetwork binds the container straight to the node's real :8000 - same
+  # role docker-compose.dev.yml's `ports: "8000:8000"` played, and it means
+  # e2e/playwright.config.ts's http://localhost:8000 keeps working unchanged.
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  restartPolicy: Never
+  containers:
+    - name: backend
+      image: ghcr.io/astral-sh/uv:python3.14-alpine
+      workingDir: /app
+      command:
+        - sh
+        - -c
+        - uv sync && uv run manage.py migrate && uv run manage.py runserver 0.0.0.0:8000
+      env:
+        - name: UV_PROJECT_ENVIRONMENT
+          value: /app/.venv
+        - name: PYTHONPYCACHEPREFIX
+          value: /pycache
+      volumeMounts:
+        - name: checkout
+          mountPath: /app
+        # Separate emptyDirs so the venv/pycache don't get written back into
+        # the actual checkout on the host - same reasoning as the named
+        # docker volumes in docker-compose.dev.yml.
+        - name: venv
+          mountPath: /app/.venv
+        - name: pycache
+          mountPath: /pycache
+  volumes:
+    - name: checkout
+      hostPath:
+        path: __CHECKOUT_PATH__/backend
+        type: Directory
+    - name: venv
+      emptyDir: {}
+    - name: pycache
+      emptyDir: {}

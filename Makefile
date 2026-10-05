@@ -94,10 +94,17 @@ test-frontend-unit: ## Run the frontend's Vitest unit/component suite
 
 test-frontend: lint-frontend typecheck-frontend test-frontend-unit ## Run everything for the frontend: lint + typecheck + unit tests
 
-test-e2e: ## Run Playwright e2e tests against the dev stack (wipes backend/db.sqlite3 before and after)
+# Runs the dev stack as two throwaway pods in the k3s cluster (see k8s/e2e/)
+# instead of docker-compose.dev.yml - this only ever runs on the self-hosted
+# runner, which is the k3s control-plane node itself (steyaert-mgr), so
+# hostNetwork + a hostPath mount of $(CURDIR) reaches the same
+# localhost:8000/:5173 Playwright already expects, no docker daemon needed.
+test-e2e: ## Run Playwright e2e tests against a throwaway k3s namespace (wipes backend/db.sqlite3 before and after)
 	rm -f backend/db.sqlite3
-	trap '$(DEV_COMPOSE) down; rm -f backend/db.sqlite3' EXIT; \
-	$(DEV_COMPOSE) up -d && \
+	trap 'kubectl delete namespace gradpace-e2e --ignore-not-found --wait=true; rm -f backend/db.sqlite3' EXIT; \
+	kubectl apply -f k8s/e2e/namespace.yaml && \
+	sed "s#__CHECKOUT_PATH__#$(CURDIR)#g" k8s/e2e/backend-pod.yaml | kubectl apply -f - && \
+	sed "s#__CHECKOUT_PATH__#$(CURDIR)#g" k8s/e2e/frontend-pod.yaml | kubectl apply -f - && \
 	wait_for() { i=0; until curl -sf "$$1" >/dev/null; do i=$$((i+1)); [ $$i -ge 60 ] && echo "$$1 did not become healthy in time" >&2 && exit 1; sleep 1; done; }; \
 	wait_for http://localhost:8000/core/healthcheck/ && \
 	wait_for http://localhost:5173/ && \
