@@ -10,6 +10,11 @@ sizing.
 | `priorityclass.yaml` | `ci-low`: every CI pod's priority - evicted first, never evicts others |
 | `controller.yaml` | The ARC controller, installed by k3s's built-in Helm controller |
 | `buildkit.yaml` | Shared rootless BuildKit builder on the worker, its cache volume (GC: 7 days unused, 15 GiB max), Service and NetworkPolicy |
+| `deployer-rbac.yaml` | Permissions for the `steyaert-projects` pool's deploys: update workloads in that org's 5 namespaces, no Secrets, no deletes |
+| `runner-pools.yaml` | The three pools: `gradpace-light` (max 1), `gradpace-build` (max 2, worker), `steyaert-projects` (max 2, worker) |
+
+To check the pools end to end, run **ARC Smoke Test** from the Actions tab
+(`.github/workflows/arc-smoke.yml`).
 
 Nothing here is applied by `make deploy` (`kubectl apply -f k8s/` doesn't
 reach this folder).
@@ -29,6 +34,13 @@ Then the builder:
 ```bash
 kubectl apply -f infra/arc/buildkit.yaml
 kubectl -n arc-runners rollout status deploy/buildkitd
+```
+
+Then the pools (after creating the GitHub App secrets below):
+
+```bash
+kubectl apply -f infra/arc/deployer-rbac.yaml -f infra/arc/runner-pools.yaml
+kubectl -n arc-runners get autoscalingrunnersets
 ```
 
 ## Shared builder
