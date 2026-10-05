@@ -10,8 +10,8 @@ on:
       - main
 
 concurrency:
-  # Shared with backend-deploy.yml - both `make deploy-*` targets act on the
-  # same docker-compose project/host, so serialize rather than race them.
+  # Shared with backend-deploy.yml - both `make deploy-*` targets act on
+  # the same k3s cluster, so serialize rather than race them.
   group: deploy-production
   cancel-in-progress: false
 
@@ -26,19 +26,11 @@ jobs:
     environment: production
     permissions:
       contents: read
-      packages: read
 
     steps:
-      # gradpace-prototype/frontend is a private GHCR package - `docker
-      # compose pull` needs to be authenticated first. Uses this run's own
-      # token (packages: read above), not a long-lived credential on the host.
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
+      # Image pulls now authenticate via the cluster's own `ghcr-pull`
+      # imagePullSecret (see k8s/frontend-deployment.yaml) - kubectl itself
+      # needs no GHCR credential, so there's no docker login step here.
       - name: Sync deploy scripts with main
         # /srv/prototype is a persistent checkout on this host, not something
         # actions/checkout populates - without this, Makefile/compose changes
@@ -51,9 +43,9 @@ jobs:
           git reset --hard FETCH_HEAD
 
       - name: Deploy to production
-        # Pin to this commit's own image instead of :latest - a service
-        # update can no-op if Swarm doesn't see the tag string change, even
-        # though the digest behind :latest moved (see Makefile).
+        # Pin to this commit's own image instead of :latest - a deployment
+        # update can no-op if kubectl doesn't see the tag string change,
+        # even though the digest behind :latest moved (see Makefile).
         run: |
           cd /srv/prototype
           make deploy-frontend TAG=sha-$(echo "${{ github.event.workflow_run.head_sha || github.sha }}" | cut -c1-7)
@@ -65,8 +57,8 @@ jobs:
         run: |
           sleep 5
           FOUND=0
-          for c in $(docker ps -q -f "label=com.docker.swarm.service.name=gradpace_frontend"); do
-            if docker exec "$c" sh -c "grep -rl 'gradpace-api.steyaert.xyz' /usr/share/nginx/html/assets/*.js" >/dev/null 2>&1; then
+          for pod in $(kubectl get pods -n gradpace -l app=frontend -o jsonpath='{.items[*].metadata.name}'); do
+            if kubectl exec -n gradpace "$pod" -- sh -c "grep -rl 'gradpace-api.steyaert.xyz' /usr/share/nginx/html/assets/*.js" >/dev/null 2>&1; then
               FOUND=1
             fi
           done
