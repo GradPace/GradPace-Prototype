@@ -22,7 +22,7 @@ spec:
     githubConfigSecret: gp-arc-github-app
     runnerScaleSetName: gradpace-light
     minRunners: 0
-    maxRunners: 1
+    maxRunners: 3
     controllerServiceAccount:
       namespace: arc-systems
       name: arc-controller-gha-rs-controller

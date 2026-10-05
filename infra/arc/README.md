@@ -11,7 +11,7 @@ sizing.
 | `controller.yaml` | The ARC controller, installed by k3s's built-in Helm controller |
 | `buildkit.yaml` | Shared rootless BuildKit builder on the worker, its cache volume (GC: 7 days unused, 15 GiB max), Service and NetworkPolicy |
 | `deployer-rbac.yaml` | Permissions for the `steyaert-projects` pool's deploys: update workloads in that org's 5 namespaces, no Secrets, no deletes |
-| `runner-pools.yaml` | The three pools: `gradpace-light` (max 1), `gradpace-build` (max 2, worker), `steyaert-projects` (max 2, worker) |
+| `runner-pools.yaml` | The three pools: `gradpace-light` (max 3), `gradpace-build` (max 2, worker), `steyaert-projects` (max 2, worker) |
 
 To check the pools end to end, run **ARC Smoke Test** from the Actions tab
 (`.github/workflows/arc-smoke.yml`).
