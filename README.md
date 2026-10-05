@@ -125,6 +125,8 @@ prototype/
 ├── infra/nodes/         # Host-level config for the k3s nodes (disk limits,
 │                          # cleanup timer) - installed by hand, see its README
 ├── k8s/                 # Production k3s manifests
+│   ├── examples/         # Secret templates - never applied (real names,
+│   │                      # placeholder values)
 │   └── e2e/              # Throwaway manifests for `make test-e2e` only -
 │                          # not part of the real deploy
 ├── docker-compose.dev.yml  # Local dev stack (sqlite backend, Vite dev
@@ -205,7 +207,7 @@ built image, if CI's auto-deploy ever needs to be re-run by hand.
 ### Adding an environment variable?
 
 Add it to both `k8s/backend-configmap.yaml` (non-secret) or a
-`k8s/secrets.example-*.yaml` (secret, the real value lives only in the
+`k8s/examples/secrets.example-*.yaml` (secret, the real value lives only in the
 cluster) and the corresponding `get_secret(...)` call in
 `backend/config/settings/prod.py`. For dev-only values, add them to
 `backend/config/settings/.env.dev` or `frontend/.env.development`

@@ -47,7 +47,7 @@ With the server running:
 
 `config/settings/.env.dev` is committed (no secrets) and loaded by `dev.py`.
 Prod's env vars are documented inline in `prod.py`'s `get_secret(...)` calls
-and supplied by `k8s/backend-configmap.yaml` + the `k8s/secrets.example-*`
+and supplied by `k8s/backend-configmap.yaml` + the `k8s/examples/secrets.example-*`
 files (real secrets live in the cluster, not this repo).
 
 ## Common tasks
