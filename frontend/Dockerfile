@@ -8,8 +8,18 @@ WORKDIR /app
 # Node 26 no longer bundles Corepack, so it must be installed before it can be enabled.
 RUN npm install -g corepack && corepack enable
 
+# canvas (a devDependency, only used by vitest/jsdom - see Hero.test.tsx) has
+# no prebuilt binary for musl/Alpine, so pnpm install falls back to node-gyp
+# rebuild. These are node-canvas's own documented Alpine build deps for that
+# to succeed; none of this survives into the final nginx stage below.
+RUN apk add --no-cache python3 make g++ pkgconfig \
+    cairo-dev pango-dev jpeg-dev giflib-dev librsvg-dev
+
 # Resolve deps first so this layer is cached until the lockfile changes.
-COPY package.json pnpm-lock.yaml ./
+# pnpm-workspace.yaml holds the allowBuilds approval for canvas's install
+# script above - without it here too, pnpm blocks that script from running
+# at all (ERR_PNPM_IGNORED_BUILDS), separately from the build tools issue.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
