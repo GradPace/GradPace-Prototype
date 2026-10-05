@@ -1,0 +1,137 @@
+# The three ARC runner pools. Workflows pick one by name:
+# `runs-on: gradpace-light` / `gradpace-build` / `steyaert-projects`.
+#
+# Every pool scales to zero when idle. Runner pods run at ci-low priority
+# (evicted first, never evict others) and are deleted, workspace and all,
+# when their job ends. Listener pods (one per pool, long-running, they
+# watch GitHub for queued jobs) stay at default priority on the manager:
+# if a listener got evicted, its pool would stop picking up jobs.
+#
+# Runner image: infra/runner-image/, pinned by sha tag.
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: arc-pool-gradpace-light
+  namespace: kube-system
+spec:
+  chart: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+  version: 0.15.0
+  targetNamespace: arc-runners
+  valuesContent: |-
+    githubConfigUrl: https://github.com/GradPace
+    githubConfigSecret: gp-arc-github-app
+    runnerScaleSetName: gradpace-light
+    minRunners: 0
+    maxRunners: 1
+    controllerServiceAccount:
+      namespace: arc-systems
+      name: arc-controller-gha-rs-controller
+    listenerTemplate:
+      spec:
+        nodeSelector:
+          kubernetes.io/hostname: steyaert-mgr
+        containers:
+          - name: listener
+            resources:
+              requests: {cpu: 20m, memory: 64Mi}
+              limits: {memory: 128Mi}
+    # Path checks and the backend/frontend test suites. Not pinned to a
+    # node; the plan budgets it on the manager but the worker is fine too.
+    template:
+      spec:
+        priorityClassName: ci-low
+        containers:
+          - name: runner
+            image: ghcr.io/gradpace/actions-runner:sha-5970545
+            command: ["/home/runner/run.sh"]
+            resources:
+              requests: {cpu: 250m, memory: 1Gi}
+              # 2Gi rather than the plan's 1.5: tsc + vitest (jsdom) can
+              # peak there, and an OOM-killed test job looks like a flaky
+              # test.
+              limits: {cpu: "1", memory: 2Gi}
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: arc-pool-gradpace-build
+  namespace: kube-system
+spec:
+  chart: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+  version: 0.15.0
+  targetNamespace: arc-runners
+  valuesContent: |-
+    githubConfigUrl: https://github.com/GradPace
+    githubConfigSecret: gp-arc-github-app
+    runnerScaleSetName: gradpace-build
+    minRunners: 0
+    maxRunners: 2
+    controllerServiceAccount:
+      namespace: arc-systems
+      name: arc-controller-gha-rs-controller
+    listenerTemplate:
+      spec:
+        nodeSelector:
+          kubernetes.io/hostname: steyaert-mgr
+        containers:
+          - name: listener
+            resources:
+              requests: {cpu: 20m, memory: 64Mi}
+              limits: {memory: 128Mi}
+    # Image builds. The runner only hands the build to buildkitd (same
+    # node), so it stays small.
+    template:
+      spec:
+        priorityClassName: ci-low
+        nodeSelector:
+          kubernetes.io/hostname: steyaert-worker
+        containers:
+          - name: runner
+            image: ghcr.io/gradpace/actions-runner:sha-5970545
+            command: ["/home/runner/run.sh"]
+            resources:
+              requests: {cpu: 100m, memory: 256Mi}
+              limits: {cpu: 500m, memory: 512Mi}
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: arc-pool-steyaert-projects
+  namespace: kube-system
+spec:
+  chart: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set
+  version: 0.15.0
+  targetNamespace: arc-runners
+  valuesContent: |-
+    githubConfigUrl: https://github.com/Stephen-Steyaert-Projects
+    githubConfigSecret: stephen-arc-github-app
+    runnerScaleSetName: steyaert-projects
+    minRunners: 0
+    maxRunners: 2
+    controllerServiceAccount:
+      namespace: arc-systems
+      name: arc-controller-gha-rs-controller
+    listenerTemplate:
+      spec:
+        nodeSelector:
+          kubernetes.io/hostname: steyaert-mgr
+        containers:
+          - name: listener
+            resources:
+              requests: {cpu: 20m, memory: 64Mi}
+              limits: {memory: 128Mi}
+    # Image builds (via buildkitd) and kubectl deploys. Deploys use the
+    # steyaert-projects-deployer service account - see deployer-rbac.yaml.
+    template:
+      spec:
+        priorityClassName: ci-low
+        serviceAccountName: steyaert-projects-deployer
+        nodeSelector:
+          kubernetes.io/hostname: steyaert-worker
+        containers:
+          - name: runner
+            image: ghcr.io/gradpace/actions-runner:sha-5970545
+            command: ["/home/runner/run.sh"]
+            resources:
+              requests: {cpu: 100m, memory: 256Mi}
+              limits: {cpu: 500m, memory: 512Mi}
