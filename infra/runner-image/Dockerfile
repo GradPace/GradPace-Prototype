@@ -7,8 +7,10 @@ USER root
 
 # make: GradPace's test jobs run `make test-backend` / `make test-frontend`,
 # and Stephen-Steyaert-Projects' deploys run `make k8s-deploy`.
+# libatomic1: the Node binaries actions/setup-node downloads link against
+# it (GitHub-hosted runners have it, the minimal runner image doesn't).
 RUN apt-get update \
- && apt-get install -y --no-install-recommends make \
+ && apt-get install -y --no-install-recommends make libatomic1 \
  && rm -rf /var/lib/apt/lists/*
 
 # kubectl: deploy jobs run in a pod here, so they can't use the k3s binary
