@@ -100,8 +100,8 @@ dev = [
     { name = "pydot", specifier = ">=4.0.1" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-django", specifier = ">=4.14.0" },
-    { name = "python-dotenv", specifier = ">=1.2.3" },
-    { name = "ruff", specifier = ">=0.16.8" },
+    { name = "python-dotenv", specifier = ">=1.2.4" },
+    { name = "ruff", specifier = ">=0.16.10" },
 ]
 docs = [
     { name = "furo", specifier = ">=2025.12.19" },
