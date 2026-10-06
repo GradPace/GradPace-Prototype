@@ -1,0 +1,28 @@
+# ARC controller, installed by k3s's built-in Helm controller (no Helm CLI
+# needed). helm-controller v0.17.9, bundled with k3s v1.36.5, installs
+# straight from OCI registries.
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: arc-controller
+  namespace: kube-system
+spec:
+  chart: oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set-controller
+  version: 0.15.0
+  targetNamespace: arc-systems
+  valuesContent: |-
+    # The plan budgets the controller (and later the pool listeners) on the
+    # manager; the worker's spare CPU goes to the LLM and builds.
+    nodeSelector:
+      kubernetes.io/hostname: steyaert-mgr
+    # Default priority, not ci-low: if the controller got evicted, every
+    # runner pool would stop picking up jobs.
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 256Mi
+    flags:
+      # Chart default is "debug", which is very chatty.
+      logLevel: "info"

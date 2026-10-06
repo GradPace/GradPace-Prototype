@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import Navbar from "../../components/Navbar/Navbar";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
-import { apiFetch } from "../../lib/api/api";
+import { ApiError, apiFetch, apiGet } from "../../lib/api/api";
 
 /*
  * login page
@@ -29,7 +29,6 @@ export default function LoginPage() {
       });
       localStorage.setItem("access", access);
       localStorage.setItem("refresh", refresh);
-      navigate("/");
     } catch (err) {
       // A network-level failure (CORS block, backend unreachable) throws a
       // plain Error too ("Failed to fetch"), not just ApiError - err.message
@@ -37,6 +36,19 @@ export default function LoginPage() {
       setError(
         err instanceof Error ? err.message : "Invalid email or password.",
       );
+      return;
+    }
+
+    // here will determin where the user gets send based on if they finished setting up their profile
+    try {
+      await apiGet("/api/auth/profile/");
+      navigate("/profile", { replace: true }); // profile exists
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        navigate("/profileSetup", { replace: true }); //signed up but never finished profile setup
+      } else {
+        navigate("/", { replace: true });
+      }
     }
   }
 

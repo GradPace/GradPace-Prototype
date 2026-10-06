@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend
+  namespace: gradpace
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - gradpace-api.steyaert.xyz
+      secretName: steyaert-wildcard
+  rules:
+    - host: gradpace-api.steyaert.xyz
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000

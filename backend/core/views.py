@@ -7,7 +7,8 @@ from backend.benchmarks.algorithms import calculate_benchmark_score
 
 def health(request):
     """Liveness only - no DB/cache/etc. touched, so a slow dependency can't
-    false-negative this. Used by docker-compose.prod.yml's healthcheck."""
+    false-negative this. Used by k8s/backend-deployment.yaml's readiness/
+    liveness probes, and the deploy workflow's post-deploy health check."""
     return JsonResponse({'status': 'ok'})
 
 def benchmark_view(request):

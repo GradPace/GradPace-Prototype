@@ -18,8 +18,8 @@ dev = [
     "pydot>=4.0.1",
     "pytest>=9.1.1",
     "pytest-django>=4.14.0",
-    "python-dotenv>=1.2.3",
-    "ruff>=0.16.8",
+    "python-dotenv>=1.2.4",
+    "ruff>=0.16.10",
 ]
 docs = [
     "furo>=2025.12.19",

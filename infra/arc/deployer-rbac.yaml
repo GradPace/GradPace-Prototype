@@ -1,0 +1,130 @@
+# Kubernetes permissions for the steyaert-projects runner pool's deploy
+# jobs. Their deploys run `kubectl apply -f k8s/` and `make k8s-deploy`
+# (`kubectl set image` + `rollout status`) against their own namespaces.
+#
+# Deliberately NO access to Secrets: those are created by hand, and an
+# apply that tries to change one should fail loudly instead of silently
+# overwriting it. No delete either - `kubectl apply` without --prune never
+# deletes.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: steyaert-projects-deployer
+  namespace: arc-runners
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ci-site-deployer
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # `rollout status` follows the Deployment's ReplicaSets and Pods.
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["services", "configmaps", "persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+# Each repo's k8s/namespace.yaml is applied too. Namespaces are
+# cluster-wide, so this is limited by name to these five.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ci-site-deployer-namespaces
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames: ["personal-site", "steyaertsite", "urlshortener", "problem-of-evil", "apologetics-for-jesus"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: steyaert-projects-deployer-namespaces
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ci-site-deployer-namespaces
+subjects:
+  - kind: ServiceAccount
+    name: steyaert-projects-deployer
+    namespace: arc-runners
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: steyaert-projects-deployer
+  namespace: personal-site
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ci-site-deployer
+subjects:
+  - kind: ServiceAccount
+    name: steyaert-projects-deployer
+    namespace: arc-runners
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: steyaert-projects-deployer
+  namespace: steyaertsite
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ci-site-deployer
+subjects:
+  - kind: ServiceAccount
+    name: steyaert-projects-deployer
+    namespace: arc-runners
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: steyaert-projects-deployer
+  namespace: urlshortener
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ci-site-deployer
+subjects:
+  - kind: ServiceAccount
+    name: steyaert-projects-deployer
+    namespace: arc-runners
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: steyaert-projects-deployer
+  namespace: problem-of-evil
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ci-site-deployer
+subjects:
+  - kind: ServiceAccount
+    name: steyaert-projects-deployer
+    namespace: arc-runners
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: steyaert-projects-deployer
+  namespace: apologetics-for-jesus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ci-site-deployer
+subjects:
+  - kind: ServiceAccount
+    name: steyaert-projects-deployer
+    namespace: arc-runners
