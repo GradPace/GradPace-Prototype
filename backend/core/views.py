@@ -2,7 +2,7 @@ import json
 
 from django.http import JsonResponse
 
-from backend.core.algorithms import calculate_benchmark_score
+from backend.benchmarks.algorithms import calculate_benchmark_score
 
 
 def health(request):

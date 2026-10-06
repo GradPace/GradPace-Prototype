@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 
 from . import views
 
@@ -6,6 +6,5 @@ app_name = 'core'
 
 urlpatterns = [
     path('healthcheck/', views.health, name='health'),
-    
-    path('benchmark/', views.benchmark_view, name='benchmark'),
+    path('api/benchmarks/', include('benchmarks.urls')),
 ]
