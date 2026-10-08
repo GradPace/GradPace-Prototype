@@ -13,10 +13,12 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import Certificate, Skill, StudentProfile, TakenClass
 from .serializers import (
     CertificateSerializer,
+    LoginSerializer,
     LogoutSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
@@ -49,7 +51,8 @@ class RegisterView(APIView):
 
     @extend_schema(request=RegisterSerializer, responses={201: TokenPairSerializer})
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
+        # request in context: Turnstile verification reads the client IP.
+        serializer = RegisterSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
@@ -58,6 +61,13 @@ class RegisterView(APIView):
             {'access': str(refresh.access_token), 'refresh': str(refresh)},
             status=status.HTTP_201_CREATED,
         )
+
+
+class LoginView(TokenObtainPairView):
+    """Public - simplejwt's login, with LoginSerializer's Turnstile check in
+    front of it. Same response shape as before (access + refresh)."""
+
+    serializer_class = LoginSerializer
 
 
 class LogoutView(APIView):

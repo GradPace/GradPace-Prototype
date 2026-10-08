@@ -31,6 +31,11 @@ COPY . .
 # from this image starts.
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
+# Without it the login/signup Turnstile widget can't render, so nobody could
+# log in - fail the build instead of shipping that.
+ARG VITE_TURNSTILE_SITE_KEY
+ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
+RUN test -n "$VITE_TURNSTILE_SITE_KEY" || { echo "VITE_TURNSTILE_SITE_KEY build-arg is required"; exit 1; }
 RUN pnpm build
 
 

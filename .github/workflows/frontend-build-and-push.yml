@@ -101,5 +101,9 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64
+          # TURNSTILE_SITE_KEY is a repo variable (Settings -> Secrets and
+          # variables -> Actions -> Variables), not a secret - site keys are
+          # public, they end up in the bundle anyway.
           build-args: |
             VITE_API_URL=https://gradpace-api.steyaert.xyz
+            VITE_TURNSTILE_SITE_KEY=${{ vars.TURNSTILE_SITE_KEY }}

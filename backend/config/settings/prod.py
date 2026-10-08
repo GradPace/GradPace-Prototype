@@ -1,5 +1,7 @@
 """Production settings. Everything comes from the environment."""
 
+from django.core.exceptions import ImproperlyConfigured
+
 from config.settings import get_secret
 
 from .base import *
@@ -7,6 +9,17 @@ from .base import *
 SECRET_KEY = get_secret('SECRET_KEY')
 
 DEBUG = False
+
+# Cloudflare Turnstile on login/register (accounts/turnstile.py). Refuse to
+# start rather than serve with it misconfigured: a missing secret would fail
+# every login, and one of Cloudflare's testing secrets (1x.../2x.../3x...
+# followed by zeros, see dev.py) would let every bot through.
+TURNSTILE_ENABLED = True
+TURNSTILE_SECRET_KEY = get_secret('TURNSTILE_SECRET_KEY')
+if not TURNSTILE_SECRET_KEY:
+    raise ImproperlyConfigured('TURNSTILE_SECRET_KEY is not set.')
+if TURNSTILE_SECRET_KEY[1:].startswith('x00000000'):
+    raise ImproperlyConfigured('TURNSTILE_SECRET_KEY is a Cloudflare testing key.')
 
 raw_hosts = get_secret('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = [host.strip() for host in raw_hosts.split(',') if host.strip()]

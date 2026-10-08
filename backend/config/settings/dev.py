@@ -30,6 +30,12 @@ MAILERS = {
 # accounts.validators.PwnedPasswordValidator - skip the network call locally.
 PWNED_PASSWORDS_CHECK_ENABLED = False
 
+# Cloudflare's public "always passes" testing secret - pairs with the testing
+# site key in frontend/.env.development. Also what the e2e suite runs with.
+# https://developers.cloudflare.com/turnstile/troubleshooting/testing/
+TURNSTILE_ENABLED = True
+TURNSTILE_SECRET_KEY = '1x0000000000000000000000000000000AA'
+
 # Where accounts.views.PasswordResetRequestView points the reset link. The
 # 5173 is Vite's default port
 FRONTEND_URL = 'http://localhost:5173'

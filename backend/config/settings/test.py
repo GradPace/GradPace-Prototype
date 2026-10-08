@@ -21,6 +21,10 @@ PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 # network access / a third-party API's availability.
 PWNED_PASSWORDS_CHECK_ENABLED = False
 
+# Same reason - accounts/tests/test_turnstile.py turns it back on per test
+# with Cloudflare's siteverify response mocked.
+TURNSTILE_ENABLED = False
+
 # In-memory mailer - sent messages land in django.core.mail.outbox for asserts.
 MAILERS = {
     'default': {

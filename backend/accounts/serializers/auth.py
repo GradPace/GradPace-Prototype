@@ -9,8 +9,10 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from ..models import Role
+from ..turnstile import TOKEN_FIELD, verify_turnstile
 
 User = get_user_model()
 
@@ -18,6 +20,12 @@ User = get_user_model()
 # hashing cost on an absurdly long input - a DoS angle, not a security
 # control on its own - see AUTH_PASSWORD_VALIDATORS for the real rules).
 PASSWORD_FIELD_KWARGS = {'write_only': True, 'max_length': 64}
+
+# The Turnstile widget's token (see accounts/turnstile.py). Not `required` at
+# the field level - verify_turnstile() runs from validate() instead, since a
+# missing field would skip a validate_<field>() method entirely, and it's
+# skipped altogether when TURNSTILE_ENABLED is off (the test suite).
+TURNSTILE_FIELD_KWARGS = {'write_only': True, 'required': False, 'allow_blank': True}
 
 
 def run_password_validators(password, user=None):
@@ -40,6 +48,7 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(**PASSWORD_FIELD_KWARGS)
     password_confirm = serializers.CharField(**PASSWORD_FIELD_KWARGS)
+    cf_turnstile_response = serializers.CharField(**TURNSTILE_FIELD_KWARGS)
 
     def validate_email(self, value):
         # iexact - must match PasswordResetRequestView's lookup, or two users
@@ -50,6 +59,11 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
     def validate(self, attrs):
+        # First - before the password validators, one of which calls out to
+        # Have I Been Pwned.
+        verify_turnstile(
+            attrs.pop(TOKEN_FIELD, ''), action='register', request=self.context.get('request')
+        )
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({'password_confirm': 'Passwords do not match.'})
         run_password_validators(attrs['password'])
@@ -64,6 +78,20 @@ class RegisterSerializer(serializers.Serializer):
             last_name=validated_data.get('last_name', ''),
             role=student_role,
         )
+
+
+class LoginSerializer(TokenObtainPairSerializer):
+    """simplejwt's email/password -> token pair, plus a Turnstile check that
+    runs before authenticate() so a bot never gets as far as password
+    hashing."""
+
+    cf_turnstile_response = serializers.CharField(**TURNSTILE_FIELD_KWARGS)
+
+    def validate(self, attrs):
+        verify_turnstile(
+            attrs.pop(TOKEN_FIELD, ''), action='login', request=self.context.get('request')
+        )
+        return super().validate(attrs)
 
 
 class PasswordChangeSerializer(serializers.Serializer):
