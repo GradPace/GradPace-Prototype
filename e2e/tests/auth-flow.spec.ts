@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 
 // The dev backend's db.sqlite3 is a persisted file, not an in-memory test
@@ -16,6 +16,16 @@ function uniqueEmail() {
 // (accounts/validators.py) without looking like a guessable word.
 const PASSWORD = 'Zq9!wPbn3'
 
+// Sign up / Log in stay disabled until the Turnstile widget passes (dev uses
+// Cloudflare's always-pass test key, ~1-2s). Wait for that before clicking:
+// clicking a disabled button makes Playwright retry, and its retries scroll
+// the page - right after a scroll Chromium can route the click into the
+// Turnstile iframe instead of the button, so the form never submits.
+async function clickWhenEnabled(button: Locator) {
+  await expect(button).toBeEnabled({ timeout: 15_000 })
+  await button.click()
+}
+
 test.describe('signup -> profile setup -> profile -> logout -> login', () => {
   test('completes the full cross-app journey', async ({ page }) => {
     const email = uniqueEmail()
@@ -26,7 +36,7 @@ test.describe('signup -> profile setup -> profile -> logout -> login', () => {
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
     await page.getByLabel('Confirm password').fill(PASSWORD)
-    await page.getByRole('button', { name: 'Sign up' }).click()
+    await clickWhenEnabled(page.getByRole('button', { name: 'Sign up' }))
 
     await expect(page).toHaveURL(/\/profileSetup$/)
     await expect(page.getByText(/hi ada, welcome to gradpace/i)).toBeVisible()
@@ -66,7 +76,7 @@ test.describe('signup -> profile setup -> profile -> logout -> login', () => {
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
     await page.getByLabel('Confirm password').fill(PASSWORD)
-    await page.getByRole('button', { name: 'Sign up' }).click()
+    await clickWhenEnabled(page.getByRole('button', { name: 'Sign up' }))
     await expect(page).toHaveURL(/\/profileSetup$/)
 
     // ProfileSetupPage has two "Log out" controls - the Navbar's and its own
@@ -76,7 +86,7 @@ test.describe('signup -> profile setup -> profile -> logout -> login', () => {
 
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password').fill('definitely-wrong-password')
-    await page.getByRole('button', { name: 'Log in' }).click()
+    await clickWhenEnabled(page.getByRole('button', { name: 'Log in' }))
 
     await expect(page.getByText(/no active account found/i)).toBeVisible()
     await expect(page).toHaveURL(/\/login$/)
