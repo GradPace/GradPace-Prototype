@@ -9,9 +9,14 @@ import { useEffect, useRef } from "react";
 const SCRIPT_SRC =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
+// "auto" follows the visitor's OS light/dark setting.
+export type TurnstileTheme = "light" | "dark" | "auto";
+
 type TurnstileOptions = {
   sitekey: string;
   action: string;
+  size: "normal" | "flexible" | "compact";
+  theme: TurnstileTheme;
   callback: (token: string) => void;
   "expired-callback": () => void;
   "error-callback": () => void;
@@ -52,9 +57,12 @@ type Props = {
   // Called with a token once the challenge passes, and with null when it
   // expires or errors, so the form can disable submit until it's valid again.
   onToken: (token: string | null) => void;
+  // Dark to match the site, which is dark-only for now - pass the site's
+  // theme here once it has a light mode.
+  theme?: TurnstileTheme;
 };
 
-export default function Turnstile({ action, onToken }: Props) {
+export default function Turnstile({ action, onToken, theme = "dark" }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Latest onToken without re-rendering the widget whenever the parent
   // passes a new function.
@@ -73,6 +81,10 @@ export default function Turnstile({ action, onToken }: Props) {
         widgetId = window.turnstile.render(containerRef.current, {
           sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
           action,
+          // Fill the form's width (min 300px) to line up with the inputs,
+          // instead of the fixed 300px default.
+          size: "flexible",
+          theme,
           callback: (token) => onTokenRef.current(token),
           "expired-callback": () => onTokenRef.current(null),
           "error-callback": () => onTokenRef.current(null),
@@ -84,7 +96,7 @@ export default function Turnstile({ action, onToken }: Props) {
       cancelled = true;
       if (widgetId) window.turnstile?.remove(widgetId);
     };
-  }, [action]);
+  }, [action, theme]);
 
   return <div ref={containerRef} />;
 }
