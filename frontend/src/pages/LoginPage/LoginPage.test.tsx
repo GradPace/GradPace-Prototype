@@ -11,6 +11,17 @@ vi.mock('react-router-dom', async (importOriginal) => {
   return { ...actual, useNavigate: () => navigateMock }
 })
 
+// The real widget loads Cloudflare's script, which jsdom can't run - pass
+// the challenge straight away instead.
+vi.mock('../../components/Turnstile/Turnstile', async () => {
+  const { useEffect } = await import('react')
+  function FakeTurnstile({ onToken }: { onToken: (token: string) => void }) {
+    useEffect(() => onToken('turnstile-token'), [onToken])
+    return null
+  }
+  return { default: FakeTurnstile }
+})
+
 async function fillAndSubmit(email = 'a@b.com', password = 'pw') {
   const user = userEvent.setup()
   await user.type(screen.getByLabelText(/email/i), email)
@@ -55,6 +66,10 @@ describe('LoginPage', () => {
     )
     await fillAndSubmit()
 
+    const [, options] = vi.mocked(fetch).mock.calls[0]
+    expect(JSON.parse(options?.body as string)).toMatchObject({
+      cf_turnstile_response: 'turnstile-token',
+    })
     expect(localStorage.getItem('access')).toBe('a')
     expect(localStorage.getItem('refresh')).toBe('r')
     expect(navigateMock).toHaveBeenCalledWith('/profile', { replace: true })

@@ -42,6 +42,8 @@ spec:
               value: /run/secrets/db-password/password
             - name: EMAIL_HOST_PASSWORD_FILE
               value: /run/secrets/email-host-password/password
+            - name: TURNSTILE_SECRET_KEY_FILE
+              value: /run/secrets/turnstile-secret-key/secret-key
           ports:
             - containerPort: 8000
           volumeMounts:
@@ -53,6 +55,9 @@ spec:
               readOnly: true
             - name: email-host-password
               mountPath: /run/secrets/email-host-password
+              readOnly: true
+            - name: turnstile-secret-key
+              mountPath: /run/secrets/turnstile-secret-key
               readOnly: true
           readinessProbe:
             httpGet:
@@ -89,3 +94,6 @@ spec:
         - name: email-host-password
           secret:
             secretName: email-host-password
+        - name: turnstile-secret-key
+          secret:
+            secretName: turnstile-secret-key
