@@ -128,7 +128,7 @@ class PasswordResetRequestView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            user = User.objects.get(email__iexact=serializer.validated_data['email'])
+            user = User.objects.get(email__lower=serializer.validated_data['email'].lower())
         except User.DoesNotExist:
             return Response(status=status.HTTP_200_OK)
 
