@@ -125,6 +125,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
+    # JSON request bodies only - no form-encoded/multipart parsing on every
+    # endpoint. A view that takes a file upload opts back in per view with
+    # `parser_classes = [MultiPartParser]`.
+    'DEFAULT_PARSER_CLASSES': ['rest_framework.parsers.JSONParser'],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
