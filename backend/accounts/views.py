@@ -40,8 +40,12 @@ User = get_user_model()
 def _blacklist_all_outstanding_tokens(user):
     """Force logout everywhere - used after a password change/reset so an
     old/stolen refresh token can't keep minting new access tokens."""
-    for outstanding in OutstandingToken.objects.filter(user=user):
-        BlacklistedToken.objects.get_or_create(token=outstanding)
+    # One insert for all of them; ignore_conflicts skips tokens that are
+    # already blacklisted (BlacklistedToken.token is a OneToOneField).
+    BlacklistedToken.objects.bulk_create(
+        [BlacklistedToken(token=token) for token in OutstandingToken.objects.filter(user=user)],
+        ignore_conflicts=True,
+    )
 
 
 class RegisterView(APIView):
