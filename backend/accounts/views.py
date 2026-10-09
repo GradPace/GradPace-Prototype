@@ -15,6 +15,7 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from .mail import send_in_background
 from .models import Certificate, Skill, StudentProfile, TakenClass
 from .serializers import (
     CertificateSerializer,
@@ -143,7 +144,7 @@ class PasswordResetRequestView(APIView):
             to=[user.email],  # from_email defaults to DEFAULT_FROM_EMAIL
         )
         email.attach_alternative(html_body, 'text/html')
-        email.send()
+        send_in_background(email)
 
         return Response(status=status.HTTP_200_OK)
 

@@ -123,11 +123,16 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins.split(',') if o.strip()]
 MAILERS = {
     'default': {
         'BACKEND': get_secret('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend'),
-        'HOST': get_secret('EMAIL_HOST', 'mail'),
-        'PORT': int(get_secret('EMAIL_PORT', 25)),
-        'USERNAME': get_secret('EMAIL_HOST_USER', ''),
-        'PASSWORD': get_secret('EMAIL_HOST_PASSWORD', ''),
-        'USE_TLS': get_secret('EMAIL_USE_TLS', '') == '1',
+        'OPTIONS': {
+            'host': get_secret('EMAIL_HOST', 'mail'),
+            'port': int(get_secret('EMAIL_PORT', 25)),
+            'username': get_secret('EMAIL_HOST_USER', ''),
+            'password': get_secret('EMAIL_HOST_PASSWORD', ''),
+            'use_tls': get_secret('EMAIL_USE_TLS', '') == '1',
+            # Seconds. Without one, a hung mail server blocks the sending
+            # thread forever (see accounts/mail.py).
+            'timeout': 10,
+        },
     },
 }
 DEFAULT_FROM_EMAIL = get_secret('DEFAULT_FROM_EMAIL', 'noreply@gradpace.steyaert.xyz')
