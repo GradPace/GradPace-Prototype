@@ -95,7 +95,7 @@ def test_list_only_returns_the_callers_own_skills(client):
     )
 
     assert response.status_code == 200
-    names = [entry['name'] for entry in response.json()]
+    names = [entry['name'] for entry in response.json()['results']]
     assert names == ['Python']
 
 

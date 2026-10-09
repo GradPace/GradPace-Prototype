@@ -130,6 +130,10 @@ REST_FRAMEWORK = {
     # `parser_classes = [MultiPartParser]`.
     'DEFAULT_PARSER_CLASSES': ['rest_framework.parsers.JSONParser'],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    # Every list endpoint is paginated: {count, next, previous, results},
+    # with ?limit=/?offset= to page through.
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
+    'PAGE_SIZE': 50,
 }
 
 # drf-spectacular - generates the OpenAPI schema from the views/serializers
