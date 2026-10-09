@@ -70,7 +70,8 @@ class RegisterSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
-        student_role, _ = Role.objects.get_or_create(role_name='student')
+        # Seeded by migration 0002_seed_roles.
+        student_role = Role.objects.get(role_name='student')
         try:
             # atomic: a failed insert mustn't break an enclosing transaction.
             with transaction.atomic():

@@ -14,3 +14,9 @@ from django.core.wsgi import get_wsgi_application
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
 application = get_wsgi_application()
+
+# Load the password validator's dictionary word list now, at worker startup,
+# instead of on the first password check (it's cached per process).
+from accounts.validators import _dictionary_words  # noqa: E402
+
+_dictionary_words()
