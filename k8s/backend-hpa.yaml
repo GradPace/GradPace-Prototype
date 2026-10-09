@@ -8,7 +8,10 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: backend
-  minReplicas: 1
+  # 2, not 1: each pod is 1 Gunicorn worker (entrypoint.prod.sh), and the
+  # GIL lets only one of its threads hash a password at a time - a second
+  # pod lets concurrent logins/registrations actually hash in parallel.
+  minReplicas: 2
   maxReplicas: 6
   metrics:
     - type: Resource

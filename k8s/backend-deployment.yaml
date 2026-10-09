@@ -4,10 +4,9 @@ metadata:
   name: backend
   namespace: gradpace
 spec:
-  # Baseline the HPA scales from - it overrides this once active. Starting
-  # at 1 instead of the old fixed 3 since the HPA will add capacity under
-  # real load instead of sitting idle at a fixed count.
-  replicas: 1
+  # Baseline the HPA scales from - it overrides this once active. Matches
+  # the HPA's minReplicas (see backend-hpa.yaml for why 2).
+  replicas: 2
   selector:
     matchLabels:
       app: backend

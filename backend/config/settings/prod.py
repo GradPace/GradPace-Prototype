@@ -73,8 +73,9 @@ DATABASES = {
         'PORT': get_secret('DATABASE_PORT', 5432),
         # Reuse connections across requests instead of opening a new one each
         # time. Each Gunicorn thread holds its own (Django's DB connection is
-        # thread-local) - with 3 backend replicas x 4 threads, that's at most
-        # 12 concurrent connections, well under Postgres's default
+        # thread-local) - with up to 6 backend replicas (k8s/backend-hpa.yaml)
+        # x 4 threads, that's at most 24 concurrent connections, well under
+        # Postgres's default
         # max_connections (100). 5 minutes keeps connections warm across the
         # idle gaps between requests at this traffic level; CONN_HEALTH_CHECKS
         # guards against a connection going stale during that window (e.g. a
