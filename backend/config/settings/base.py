@@ -134,6 +134,15 @@ REST_FRAMEWORK = {
     # with ?limit=/?offset= to page through.
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 50,
+    # Per client IP, on the public auth endpoints only (accounts/views.py,
+    # accounts.throttling.AuthRateThrottle). Login/register/reset all hash a
+    # password or send an email - cheap to request, expensive to serve.
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '10/min',
+        'register': '5/min',
+        'refresh': '30/min',
+        'password_reset': '5/hour',
+    },
 }
 
 # drf-spectacular - generates the OpenAPI schema from the views/serializers

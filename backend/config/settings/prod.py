@@ -60,6 +60,17 @@ STORAGES = {
 }
 
 
+# Cache - shared across backend pods, so the auth throttles
+# (DEFAULT_THROTTLE_RATES) count every pod's requests together and survive a
+# deploy. Also backs the OpenAPI schema cache (config/urls.py). k8s/redis-*.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': get_secret('REDIS_URL', 'redis://redis:6379/0'),
+    }
+}
+
+
 # Database - GradPace gets its own dedicated Postgres, not a shared one.
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 

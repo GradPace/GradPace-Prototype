@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .mail import send_in_background
 from .models import Certificate, Skill, StudentProfile, TakenClass
@@ -33,6 +33,7 @@ from .serializers import (
     TokenPairSerializer,
     UserSerializer,
 )
+from .throttling import AuthRateThrottle
 
 User = get_user_model()
 
@@ -53,6 +54,8 @@ class RegisterView(APIView):
     as /login/), so the frontend doesn't need a separate post-signup login."""
 
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'register'
 
     @extend_schema(request=RegisterSerializer, responses={201: TokenPairSerializer})
     def post(self, request):
@@ -73,6 +76,16 @@ class LoginView(TokenObtainPairView):
     front of it. Same response shape as before (access + refresh)."""
 
     serializer_class = LoginSerializer
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'login'
+
+
+class RefreshView(TokenRefreshView):
+    """Public - simplejwt's refresh, throttled like the other auth
+    endpoints."""
+
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'refresh'
 
 
 class LogoutView(APIView):
@@ -121,6 +134,8 @@ class PasswordResetRequestView(APIView):
     emails a reset link built from settings.FRONTEND_URL."""
 
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'password_reset'
 
     @extend_schema(request=PasswordResetRequestSerializer, responses={200: None})
     def post(self, request):
