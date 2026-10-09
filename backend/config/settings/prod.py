@@ -45,6 +45,11 @@ MIDDLEWARE.insert(
 # only: no real benefit in dev/test, and keeps it out of base.py.
 MIDDLEWARE.insert(0, 'django.middleware.gzip.GZipMiddleware')
 
+# JSON only - no browsable API in prod. DRF's default renderers include
+# BrowsableAPIRenderer, which serves a full HTML page to any browser and lets
+# anyone click through the whole API. Dev keeps it for poking around locally.
+REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = ['rest_framework.renderers.JSONRenderer']
+
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
