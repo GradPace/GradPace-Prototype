@@ -32,6 +32,7 @@ deploy-frontend: ## Roll the frontend deployment to TAG=<tag> (defaults to lates
 
 deploy-backend: ## Roll the backend deployment to TAG=<tag> (defaults to latest) and wait for it to finish
 	kubectl set image deployment/backend backend=$(REGISTRY_IMAGE)/backend:$(TAG) -n $(NAMESPACE)
+	kubectl set image cronjob/flush-expired-tokens flush-expired-tokens=$(REGISTRY_IMAGE)/backend:$(TAG) -n $(NAMESPACE)
 	kubectl rollout status deployment/backend -n $(NAMESPACE)
 
 rollback-frontend: ## Roll the frontend deployment back to its previous revision

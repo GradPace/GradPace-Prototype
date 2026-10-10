@@ -6,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError, transaction
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
@@ -51,10 +52,9 @@ class RegisterSerializer(serializers.Serializer):
     cf_turnstile_response = serializers.CharField(**TURNSTILE_FIELD_KWARGS)
 
     def validate_email(self, value):
-        # iexact - must match PasswordResetRequestView's lookup, or two users
-        # differing only by email case (Foo@x.com / foo@x.com) could both
-        # register, and a reset request for either raises MultipleObjectsReturned.
-        if User.objects.filter(email__iexact=value).exists():
+        # Case-insensitive, like the unique_email_ci constraint - which also
+        # catches two concurrent registrations that both get past this check.
+        if User.objects.filter(email__lower=value.lower()).exists():
             raise serializers.ValidationError('A user with that email already exists.')
         return value
 
@@ -70,14 +70,24 @@ class RegisterSerializer(serializers.Serializer):
         return attrs
 
     def create(self, validated_data):
-        student_role, _ = Role.objects.get_or_create(role_name='student')
-        return User.objects.create_user(
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            role=student_role,
-        )
+        # Seeded by migration 0002_seed_roles.
+        student_role = Role.objects.get(role_name='student')
+        try:
+            # atomic: a failed insert mustn't break an enclosing transaction.
+            with transaction.atomic():
+                return User.objects.create_user(
+                    email=validated_data['email'],
+                    password=validated_data['password'],
+                    first_name=validated_data.get('first_name', ''),
+                    last_name=validated_data.get('last_name', ''),
+                    role=student_role,
+                )
+        except IntegrityError:
+            # Lost a race with a concurrent registration for the same email
+            # (unique_email_ci) - same response as validate_email's.
+            raise serializers.ValidationError(
+                {'email': 'A user with that email already exists.'}
+            ) from None
 
 
 class LoginSerializer(TokenObtainPairSerializer):

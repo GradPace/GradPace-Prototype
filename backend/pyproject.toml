@@ -28,6 +28,7 @@ docs = [
 prod = [
     "gunicorn>=26.2.0",
     "psycopg[binary]>=3.3.5",
+    "redis>=8.1.0",
     "whitenoise>=6.12.0",
 ]
 

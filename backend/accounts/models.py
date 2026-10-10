@@ -4,6 +4,7 @@ from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class Role(models.Model):
@@ -33,6 +34,12 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
+# Lets lookups use email__lower=..., which compiles to LOWER(email) and so can
+# use CustomUser's unique_email_ci index below. email__iexact compiles to
+# UPPER(email) on Postgres and can't.
+models.EmailField.register_lookup(Lower)
+
+
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     """Replaces Django's default User - UUID pk, email login, no username.
     is_active/is_staff are required by PermissionsMixin/the admin site, not
@@ -52,6 +59,13 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
+
+    class Meta:
+        constraints = [
+            # Foo@x.com and foo@x.com are the same account. Also the index
+            # behind every email__lower lookup.
+            models.UniqueConstraint(Lower('email'), name='unique_email_ci'),
+        ]
 
     def __str__(self):
         return self.email

@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
@@ -5,7 +7,7 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 
 from ..factories import UserFactory
-from .helpers import NEW_PASSWORD, PASSWORD, login
+from .helpers import NEW_PASSWORD, PASSWORD, login, wait_for_emails
 
 
 @pytest.mark.django_db
@@ -83,6 +85,7 @@ def test_password_reset_request_emails_a_link_for_a_known_address(client):
     )
 
     assert response.status_code == 200
+    wait_for_emails()
     assert len(mail.outbox) == 1
     sent = mail.outbox[0]
     assert sent.to == [user.email]
@@ -101,7 +104,27 @@ def test_password_reset_request_is_silent_for_an_unknown_address(client):
 
     # Same 200 either way - can't be used to enumerate accounts.
     assert response.status_code == 200
+    wait_for_emails()
     assert len(mail.outbox) == 0
+
+
+@pytest.mark.django_db
+def test_password_reset_request_still_succeeds_when_sending_fails(client, caplog):
+    user = UserFactory()
+
+    with patch(
+        'django.core.mail.EmailMultiAlternatives.send', side_effect=OSError('mail server down')
+    ):
+        response = client.post(
+            '/api/auth/password/reset/',
+            {'email': user.email},
+            content_type='application/json',
+        )
+        wait_for_emails()
+
+    # Sent in the background - the failure is logged, not returned.
+    assert response.status_code == 200
+    assert 'Failed to send email' in caplog.text
 
 
 @pytest.mark.django_db

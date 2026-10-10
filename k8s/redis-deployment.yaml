@@ -1,0 +1,51 @@
+# Backend's shared cache (CACHES in config/settings/prod.py) - the auth
+# throttle counters and the cached OpenAPI schema. Everything in it is
+# disposable, so no persistence and no volume: a restart just resets the
+# throttle counts. maxmemory keeps it inside the container limit, evicting
+# least-recently-used keys rather than erroring if it ever fills.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: gradpace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:8-alpine
+          args:
+            - --save
+            - ''
+            - --appendonly
+            - 'no'
+            - --maxmemory
+            - 48mb
+            - --maxmemory-policy
+            - allkeys-lru
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          readinessProbe:
+            exec:
+              command: ['redis-cli', 'ping']
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ['redis-cli', 'ping']
+            initialDelaySeconds: 5
+            periodSeconds: 10

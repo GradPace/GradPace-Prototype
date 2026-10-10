@@ -90,7 +90,7 @@ def test_list_only_returns_the_callers_own_classes(client):
     )
 
     assert response.status_code == 200
-    course_codes = [entry['course_code'] for entry in response.json()]
+    course_codes = [entry['course_code'] for entry in response.json()['results']]
     assert course_codes == ['CS101']
 
 

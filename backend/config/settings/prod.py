@@ -45,6 +45,11 @@ MIDDLEWARE.insert(
 # only: no real benefit in dev/test, and keeps it out of base.py.
 MIDDLEWARE.insert(0, 'django.middleware.gzip.GZipMiddleware')
 
+# JSON only - no browsable API in prod. DRF's default renderers include
+# BrowsableAPIRenderer, which serves a full HTML page to any browser and lets
+# anyone click through the whole API. Dev keeps it for poking around locally.
+REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = ['rest_framework.renderers.JSONRenderer']
+
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
@@ -52,6 +57,17 @@ STORAGES = {
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
+}
+
+
+# Cache - shared across backend pods, so the auth throttles
+# (DEFAULT_THROTTLE_RATES) count every pod's requests together and survive a
+# deploy. Also backs the OpenAPI schema cache (config/urls.py). k8s/redis-*.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': get_secret('REDIS_URL', 'redis://redis:6379/0'),
+    }
 }
 
 
@@ -68,8 +84,9 @@ DATABASES = {
         'PORT': get_secret('DATABASE_PORT', 5432),
         # Reuse connections across requests instead of opening a new one each
         # time. Each Gunicorn thread holds its own (Django's DB connection is
-        # thread-local) - with 3 backend replicas x 4 threads, that's at most
-        # 12 concurrent connections, well under Postgres's default
+        # thread-local) - with up to 6 backend replicas (k8s/backend-hpa.yaml)
+        # x 4 threads, that's at most 24 concurrent connections, well under
+        # Postgres's default
         # max_connections (100). 5 minutes keeps connections warm across the
         # idle gaps between requests at this traffic level; CONN_HEALTH_CHECKS
         # guards against a connection going stale during that window (e.g. a
@@ -118,11 +135,16 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins.split(',') if o.strip()]
 MAILERS = {
     'default': {
         'BACKEND': get_secret('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend'),
-        'HOST': get_secret('EMAIL_HOST', 'mail'),
-        'PORT': int(get_secret('EMAIL_PORT', 25)),
-        'USERNAME': get_secret('EMAIL_HOST_USER', ''),
-        'PASSWORD': get_secret('EMAIL_HOST_PASSWORD', ''),
-        'USE_TLS': get_secret('EMAIL_USE_TLS', '') == '1',
+        'OPTIONS': {
+            'host': get_secret('EMAIL_HOST', 'mail'),
+            'port': int(get_secret('EMAIL_PORT', 25)),
+            'username': get_secret('EMAIL_HOST_USER', ''),
+            'password': get_secret('EMAIL_HOST_PASSWORD', ''),
+            'use_tls': get_secret('EMAIL_USE_TLS', '') == '1',
+            # Seconds. Without one, a hung mail server blocks the sending
+            # thread forever (see accounts/mail.py).
+            'timeout': 10,
+        },
     },
 }
 DEFAULT_FROM_EMAIL = get_secret('DEFAULT_FROM_EMAIL', 'noreply@gradpace.steyaert.xyz')

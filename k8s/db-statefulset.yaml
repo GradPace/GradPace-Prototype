@@ -26,6 +26,18 @@ spec:
       containers:
         - name: db
           image: postgres:17
+          # Measured ~15m CPU / ~55Mi at idle (Oct 2026), most of that
+          # reclaimable page cache. 512Mi covers shared_buffers (128MB),
+          # autovacuum (64MB) and all 24 possible backend connections (see
+          # DATABASES in prod.py) at once - raise it if the HPA regularly
+          # runs near its max.
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: '1'
+              memory: 512Mi
           envFrom:
             - configMapRef:
                 name: db-config
