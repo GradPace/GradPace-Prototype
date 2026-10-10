@@ -100,7 +100,13 @@ test-frontend: lint-frontend typecheck-frontend test-frontend-unit ## Run everyt
 # runner, which is the k3s control-plane node itself (steyaert-mgr), so
 # hostNetwork + a hostPath mount of $(CURDIR) reaches the same
 # localhost:8000/:5173 Playwright already expects, no docker daemon needed.
+#
+# The first delete clears out pods left behind by an earlier run whose trap
+# never fired - `kubectl apply` would just reuse them, so uv sync/migrate
+# wouldn't rerun, and the rm would delete the db out from under the old
+# backend, leaving it serving an empty database with no tables.
 test-e2e: ## Run Playwright e2e tests against a throwaway k3s namespace (wipes backend/db.sqlite3 before and after)
+	kubectl delete namespace gradpace-e2e --ignore-not-found --wait=true
 	rm -f backend/db.sqlite3
 	trap 'kubectl delete namespace gradpace-e2e --ignore-not-found --wait=true; rm -f backend/db.sqlite3' EXIT; \
 	kubectl apply -f k8s/e2e/namespace.yaml && \
