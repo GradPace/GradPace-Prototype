@@ -8,6 +8,20 @@ from .base import *
 
 SECRET_KEY = get_secret('SECRET_KEY')
 
+# Encrypted fields (accounts/fields.py) derive their key from SECRET_KEY +
+# SALT_KEY - refuse to start without one rather than fail on the first read.
+# Comma-separated, newest first: during a salt rotation the old salt stays
+# listed after the new one so existing rows still decrypt.
+raw_salts = get_secret('SALT_KEY', '')
+SALT_KEY = [salt.strip() for salt in raw_salts.split(',') if salt.strip()]
+if not SALT_KEY:
+    raise ImproperlyConfigured('SALT_KEY is not set.')
+
+# Comma-separated. When rotating SECRET_KEY, put the old one here - without
+# it, every encrypted value becomes unreadable.
+raw_fallbacks = get_secret('SECRET_KEY_FALLBACKS', '')
+SECRET_KEY_FALLBACKS = [key.strip() for key in raw_fallbacks.split(',') if key.strip()]
+
 DEBUG = False
 
 # Cloudflare Turnstile on login/register (accounts/turnstile.py). Refuse to
