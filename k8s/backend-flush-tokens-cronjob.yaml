@@ -39,11 +39,13 @@ spec:
                 - configMapRef:
                     name: backend-config
               # Only what config/settings/prod.py needs to start and reach
-              # the database - TURNSTILE_SECRET_KEY because prod.py refuses
-              # to load without it.
+              # the database - SALT_KEY and TURNSTILE_SECRET_KEY because
+              # prod.py refuses to load without them.
               env:
                 - name: SECRET_KEY_FILE
                   value: /run/secrets/backend-secret-key/secret-key
+                - name: SALT_KEY_FILE
+                  value: /run/secrets/backend-salt-key/salt-key
                 - name: DATABASE_PASSWORD_FILE
                   value: /run/secrets/db-password/password
                 - name: TURNSTILE_SECRET_KEY_FILE
@@ -51,6 +53,9 @@ spec:
               volumeMounts:
                 - name: backend-secret-key
                   mountPath: /run/secrets/backend-secret-key
+                  readOnly: true
+                - name: backend-salt-key
+                  mountPath: /run/secrets/backend-salt-key
                   readOnly: true
                 - name: db-password
                   mountPath: /run/secrets/db-password
@@ -62,6 +67,9 @@ spec:
             - name: backend-secret-key
               secret:
                 secretName: backend-secret-key
+            - name: backend-salt-key
+              secret:
+                secretName: backend-salt-key
             - name: db-password
               secret:
                 secretName: db-password

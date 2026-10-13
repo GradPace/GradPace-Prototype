@@ -209,7 +209,9 @@ built image, if CI's auto-deploy ever needs to be re-run by hand.
 Add it to both `k8s/backend-configmap.yaml` (non-secret) or a
 `k8s/examples/secrets.example-*.yaml` (secret, the real value lives only in the
 cluster) and the corresponding `get_secret(...)` call in
-`backend/config/settings/prod.py`. For dev-only values, add them to
+`backend/config/settings/prod.py` - `SALT_KEY` (`backend-salt-key`) is a
+recent example of a secret one, mounted in `k8s/backend-deployment.yaml`
+and the `flush-expired-tokens` CronJob. For dev-only values, add them to
 `backend/config/settings/.env.dev` or `frontend/.env.development`
 instead - both are committed, so keep real secrets out of them.
 

@@ -4,6 +4,7 @@ from .base import *
 
 DEBUG = False
 SECRET_KEY = 'django-insecure-test-key-not-a-secret'
+SALT_KEY = 'test-only-salt-not-a-secret'
 ALLOWED_HOSTS = ['*']
 
 # In-memory database - fast, discarded after the run.

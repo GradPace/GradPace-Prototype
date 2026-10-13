@@ -11,6 +11,7 @@ model, and student profiles (classes taken, certificates, skills). See
 - [Settings](#settings)
 - [Common tasks](#common-tasks)
   - [Changed a model?](#changed-a-model)
+- [Encrypted fields](#encrypted-fields)
 - [Deploying](#deploying)
 
 ## Prerequisites
@@ -71,6 +72,49 @@ uv run manage.py migrate
 
 Review the generated migration before committing it - GradPace doesn't
 squash or hand-edit migrations.
+
+## Encrypted fields
+
+Sensitive columns are encrypted at rest with
+[django-fernet-encrypted-fields](https://pypi.org/project/django-fernet-encrypted-fields/),
+through the thin subclass in `accounts/fields.py` (it keeps `''` as `''`
+instead of NULL, and drops a flag upstream sets on the shared field
+instance that isn't thread-safe). Encrypted by migration
+`accounts/0005_encrypt_sensitive_fields`:
+
+| Model            | Fields                        |
+|------------------|-------------------------------|
+| `CustomUser`     | `first_name`, `last_name`     |
+| `StudentProfile` | `major`, `uni`, `location`    |
+| `TakenClass`     | `grade`                       |
+| `Certificate`    | `credential_url`              |
+
+**Limits.** The same value encrypts differently every time, so these
+fields can't be filtered, sorted, searched, indexed or made unique -
+`filter(major='CS')` silently matches nothing. Before encrypting another
+field, check nothing queries it. `email` (login, password reset,
+`unique_email_ci`), `student_id` (unique) and `Skill.name`
+(`unique_together`) stay plaintext for that reason.
+
+**Keys.** The Fernet key is derived from `SECRET_KEY` + `SALT_KEY` (PBKDF2,
+100,000 iterations, once per field per process). `SALT_KEY` is a fixed dummy
+in `dev.py`/`test.py`; prod reads it from the `backend-salt-key` Secret (see
+`k8s/examples/secrets.example-backend-salt-key.yaml`).
+
+- **Back up `SECRET_KEY` and `SALT_KEY` outside the cluster.** Losing
+  either one loses every encrypted value. A wrong key doesn't raise either -
+  the field just returns the raw ciphertext - so a bad rotation shows up as
+  `gAAAAA...` strings in the API, not as errors.
+- **Rotating the salt:** set the Secret to `new-salt,old-salt` (newest
+  first). Old rows still decrypt; rows are re-encrypted with the new salt
+  as they're saved.
+- **Rotating `SECRET_KEY`:** put the old value in `SECRET_KEY_FALLBACKS`
+  (comma-separated, read by `prod.py`) first - without it nothing decrypts.
+
+**Uploaded files** aren't covered. There are no uploads yet. When PDF
+ingestion is ready, encrypt the bytes with `cryptography.fernet.Fernet` in a
+small custom `Storage` subclass. Don't use `django-encrypted-fields-and-files`
+for it: it installs a module also named `encrypted_fields`.
 
 ## Deploying
 

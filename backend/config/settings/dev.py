@@ -13,6 +13,8 @@ INSTALLED_APPS += ['django_extensions']
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 SECRET_KEY = 'django-insecure-29g0%p31*!h%*7izn$yyh_4uk03r$mg3ez0_1i*hbh+u47x#hp'
+# Paired with SECRET_KEY to derive the encrypted fields' key (accounts/fields.py).
+SALT_KEY = 'dev-only-salt-not-a-secret'
 
 DATABASES = {
     'default': {

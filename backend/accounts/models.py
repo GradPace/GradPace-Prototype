@@ -2,9 +2,11 @@ import uuid
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, URLValidator
 from django.db import models
 from django.db.models.functions import Lower
+
+from .fields import EncryptedCharField
 
 
 class Role(models.Model):
@@ -43,12 +45,16 @@ models.EmailField.register_lookup(Lower)
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     """Replaces Django's default User - UUID pk, email login, no username.
     is_active/is_staff are required by PermissionsMixin/the admin site, not
-    part of the original schema notes."""
+    part of the original schema notes.
+
+    first_name/last_name are encrypted at rest (accounts/fields.py) - they
+    can't be filtered, sorted, searched or made unique. email stays plaintext
+    because login and password reset look users up by it."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
-    first_name = models.CharField(max_length=150, blank=True, default='')
-    last_name = models.CharField(max_length=150, blank=True, default='')
+    first_name = EncryptedCharField(max_length=150, blank=True, default='')
+    last_name = EncryptedCharField(max_length=150, blank=True, default='')
     role = models.ForeignKey(Role, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -73,7 +79,11 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
 class StudentProfile(models.Model):
     """One per student CustomUser (see role). Name lives on CustomUser
-    (first_name/last_name) rather than being duplicated here."""
+    (first_name/last_name) rather than being duplicated here.
+
+    major/uni/location are encrypted at rest (accounts/fields.py) - they can't
+    be filtered, sorted or made unique. student_id stays plaintext because it's
+    unique."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(
@@ -82,9 +92,9 @@ class StudentProfile(models.Model):
     # School-issued identifier - distinct from `id`, which is just this row's
     # surrogate pk.
     student_id = models.CharField(max_length=20, unique=True)
-    major = models.CharField(max_length=100)
-    uni = models.CharField(max_length=150)
-    location = models.CharField(max_length=150, blank=True, default='')
+    major = EncryptedCharField(max_length=100)
+    uni = EncryptedCharField(max_length=150)
+    location = EncryptedCharField(max_length=150, blank=True, default='')
     readiness_score = models.FloatField(null=True, blank=True)
     graduated = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
@@ -119,7 +129,10 @@ class AdminProfile(models.Model):
 class TakenClass(models.Model):
     """A single completed/in-progress course entry for a student, entered by
     the student themselves as part of profile completion. No uniqueness
-    constraint because a student can retake a class."""
+    constraint because a student can retake a class.
+
+    grade is encrypted at rest (accounts/fields.py) - it can't be filtered,
+    sorted or made unique."""
 
     SEMESTER_CHOICES = [
         ('fall', 'Fall'),
@@ -137,7 +150,7 @@ class TakenClass(models.Model):
     semester = models.CharField(max_length=10, choices=SEMESTER_CHOICES)
     year = models.PositiveSmallIntegerField(validators=[MinValueValidator(1900)])
     # Free text, not choices - grading scales vary too much across schools.
-    grade = models.CharField(max_length=5, blank=True, default='')
+    grade = EncryptedCharField(max_length=5, blank=True, default='')
     credits = models.PositiveSmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -151,7 +164,10 @@ class TakenClass(models.Model):
 
 class Certificate(models.Model):
     """A certification/credential a student has earned, self-reported as
-    part of profile completion."""
+    part of profile completion.
+
+    credential_url is encrypted at rest (accounts/fields.py) - it can't be
+    filtered, sorted or made unique."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     student = models.ForeignKey(
@@ -160,7 +176,10 @@ class Certificate(models.Model):
     name = models.CharField(max_length=150)
     issuing_organization = models.CharField(max_length=150)
     date_earned = models.DateField(null=True, blank=True)
-    credential_url = models.URLField(blank=True, default='')
+    # URLValidator stands in for URLField's - there's no encrypted URL field.
+    credential_url = EncryptedCharField(
+        max_length=200, blank=True, default='', validators=[URLValidator()]
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
