@@ -14,10 +14,11 @@ libraries need to be installed once, as root, directly on the runner host
 (`steyaert-mgr`) instead:
 
 ```bash
-sudo npx --yes playwright@1.62.1 install-deps chromium
+# From the repo root - uses e2e/package.json's @playwright/test version.
+sudo npx --yes playwright@"$(node -p "require('./e2e/package.json').devDependencies['@playwright/test']")" install-deps chromium
 ```
 
-Match the version to `e2e/package.json`'s `@playwright/test` version.
-Re-run this after an OS upgrade on that host, or whenever CI starts failing
+Dependabot keeps that version up to date, so re-run this after it bumps
+Playwright, after an OS upgrade on that host, or whenever CI starts failing
 with missing shared library errors (as opposed to the auth/permission error
 `--with-deps` itself produces without root).

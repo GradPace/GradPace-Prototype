@@ -15,10 +15,29 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
+      # e2e/ changes (tests, Playwright updates) only run the e2e job -
+      # see the `e2e` filter below.
+      - 'e2e/**'
+  # Dependabot's PRs into the GP-2 dependencies branch (see
+  # .github/dependabot.yml). Only the unit/lint/typecheck jobs run for these -
+  # e2e is skipped below, since it runs on the k3s control-plane node itself.
+  # It still runs once the updates reach main. The build-and-push workflows
+  # only fire for runs on main (their workflow_run `branches` filter), so a PR
+  # run here never builds or pushes an image.
+  pull_request:
+    branches:
+      - GP-2-dependencies
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
   workflow_dispatch:
 
 jobs:
   changes:
+    # Self-hosted runners execute whatever a PR's workflow contains, so PR
+    # runs are limited to branches in this repo (dependabot's, or anyone with
+    # push access) - never a fork.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: gradpace-light
     outputs:
       # `|| 'true'` covers workflow_dispatch (no push context to diff, so
@@ -26,6 +45,7 @@ jobs:
       # manual run always exercises everything.
       backend: ${{ steps.filter.outputs.backend || 'true' }}
       frontend: ${{ steps.filter.outputs.frontend || 'true' }}
+      e2e: ${{ steps.filter.outputs.e2e || 'true' }}
     steps:
       - name: Checkout repository
         # dorny/paths-filter needs a local .git for anything but a
@@ -40,9 +60,15 @@ jobs:
 
       - name: Detect which app(s) changed
         id: filter
-        if: github.event_name == 'push'
-        uses: dorny/paths-filter@v3
+        # On pull_request this diffs via the API instead, so it doesn't
+        # need the checkout step above.
+        if: github.event_name != 'workflow_dispatch'
+        uses: dorny/paths-filter@v4
         with:
+          # Without this, a '!' pattern matches every file outside it - so
+          # '!backend/docs/**' below would mark a frontend-only change as a
+          # backend change too.
+          predicate-quantifier: some-with-excludes
           filters: |
             backend:
               - 'backend/**'
@@ -52,15 +78,15 @@ jobs:
               - '!backend/docs/**'
             frontend:
               - 'frontend/**'
+            e2e:
+              - 'e2e/**'
 
   test-backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     # A fresh runner pod in the cluster (infra/arc/), deleted after the job,
-    # so caches don't need pruning. Only triggers on push to main and manual
-    # runs, not PRs - if a pull_request trigger is ever added, self-hosted
-    # runners execute whatever the PR's workflow contains, so gate it to
-    # trusted authors.
+    # so caches don't need pruning. PR runs are gated to same-repo branches
+    # by the `changes` job above.
     runs-on: gradpace-light
 
     steps:
@@ -82,7 +108,7 @@ jobs:
   test-frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    # Same runner-pod/push-to-main-only reasoning as test-backend above.
+    # Same runner-pod reasoning as test-backend above.
     runs-on: gradpace-light
 
     steps:
@@ -109,7 +135,8 @@ jobs:
 
   e2e:
     needs: changes
-    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+    # Not on PRs - see the pull_request trigger above.
+    if: github.event_name != 'pull_request' && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.e2e == 'true')
     # Runs the real frontend against the real backend - a change in either
     # app can break the cross-app flow even when its own lint/typecheck/
     # unit tests pass, so this gates both backend-build-and-push.yml and
