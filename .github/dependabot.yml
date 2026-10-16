@@ -2,11 +2,22 @@
 # package ecosystems to update and where the package manifests are located.
 # Please see the documentation for all configuration options:
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Every entry targets GP-2-dependencies (the GP-2 dependencies epic's
+# long-lived branch) instead of main: the update PRs get merged there, then
+# go to main together in one PR titled with that round's ticket ID (e.g.
+# "GP-73: Dependency updates"). sync-dependencies-branch.yml keeps that
+# branch caught up with main so these PRs aren't built on stale manifests.
+#
+# Minor and patch updates are grouped into one PR per entry, so they can't
+# conflict with each other over the same lockfile. Major updates still get
+# their own PR each, since they're the ones likely to need code changes.
 
 version: 2
 updates:
   - package-ecosystem: "uv" # See documentation for possible values
     directory: "backend/" # Location of package manifests
+    target-branch: "GP-2-dependencies"
     versioning-strategy: increase-if-necessary # bump pyproject.toml's floor when a release would fall outside the existing >= constraint
     schedule:
       interval: "weekly"
@@ -14,30 +25,81 @@ updates:
       time: "10:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 20
-  
+    groups:
+      backend-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
   - package-ecosystem: "docker" # See documentation for possible values
     directory: "backend/" # Location of package manifests
+    target-branch: "GP-2-dependencies"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "10:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 20
+    groups:
+      backend-docker-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "npm" # Covers pnpm too - detected via pnpm-lock.yaml
     directory: "frontend/" # Location of package manifests
+    target-branch: "GP-2-dependencies"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "10:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 20
+    groups:
+      frontend-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # Playwright for the e2e suite. A new version can occasionally need new
+  # OS libraries on the runner host - see k8s/e2e/README.md.
+  - package-ecosystem: "npm"
+    directory: "e2e/"
+    target-branch: "GP-2-dependencies"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 20
+    groups:
+      e2e-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  # The actions used in .github/workflows/ - keeps them off deprecated
+  # runtimes (e.g. Node 20).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "GP-2-dependencies"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 20
+    groups:
+      actions-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "docker" # See documentation for possible values
     directory: "frontend/" # Location of package manifests
+    target-branch: "GP-2-dependencies"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "10:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 20
+    groups:
+      frontend-docker-minor-and-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
