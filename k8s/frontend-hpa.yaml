@@ -8,8 +8,10 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: frontend
+  # Capped at 2 for the prototype so it can't scale into the memory the
+  # worker's LLM / Minecraft / CI pods need.
   minReplicas: 1
-  maxReplicas: 6
+  maxReplicas: 2
   metrics:
     - type: Resource
       resource:
