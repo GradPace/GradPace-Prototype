@@ -39,6 +39,12 @@ jobs:
     # push access) - never a fork.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: gradpace-light
+    # On pull_request, paths-filter lists the PR's files through the API,
+    # which needs pull-requests: read - the repo's default token (and
+    # Dependabot's) doesn't grant it.
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       # `|| 'true'` covers workflow_dispatch (no push context to diff, so
       # the filter step below is skipped and its output is empty) - a
