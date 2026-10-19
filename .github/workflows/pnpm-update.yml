@@ -34,7 +34,7 @@ jobs:
     runs-on: gradpace-light
     steps:
       - name: Checkout dependencies branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: GP-2-dependencies
 
