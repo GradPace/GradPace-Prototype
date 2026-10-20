@@ -12,6 +12,9 @@ type StudentProfile = {
   uni: string;
   major: string;
   location: string | null;
+  readiness_score: number | null;
+  graduated: boolean;
+  updated_at: string;
 };
 
 export default function ProfilePage() {
@@ -65,6 +68,22 @@ export default function ProfilePage() {
                 <ProfileField label="University" value={profile.uni} />
                 <ProfileField label="Major" value={profile.major} />
                 <ProfileField label="Location" value={profile.location} />
+                <ProfileField
+                  label="Readiness Score"
+                  value={
+                    profile.readiness_score !== null
+                      ? profile.readiness_score.toFixed(1)
+                      : null
+                  }
+                />
+                <ProfileField
+                  label="Graduated"
+                  value={profile.graduated ? "Yes" : "No"}
+                />
+                <ProfileField
+                  label="Last Updated"
+                  value={new Date(profile.updated_at).toLocaleString()}
+                />
               </dl>
             </>
           )}
