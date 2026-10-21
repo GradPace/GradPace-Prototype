@@ -1,23 +1,11 @@
-import heroIllustration512 from "../../assets/hero-illustration-512.webp";
-import heroIllustration1024 from "../../assets/hero-illustration-1024.webp";
-import heroIllustrationPng from "../../assets/hero-illustration.png";
+import heroIllustration from "../../assets/hero-illustration.webp";
 import { Link } from "react-router-dom";
-
-const supportsWebP = (() => {
-  if (typeof document === "undefined") return false;
-  const canvas = document.createElement("canvas");
-  return canvas.toDataURL("image/webp").startsWith("data:image/webp");
-})();
 
 /*
  * Homepage hero - headline, subhead, CTAs, and a graphic placeholder
  */
 export default function Hero() {
   return (
-    // grid-col-2 split the hero into two equal columns. the text with a button on the left
-    // an illustration on the right
-    // outer mx-auto max-w-6xl mirrors Navbar.tsx so both sections share the
-    // same content width.
     <section className="mx-auto grid max-w-6xl grid-cols-2 items-center gap-16 px-8 py-28">
       <div className="max-w-md">
         {/* Header as an intro */}
@@ -46,28 +34,16 @@ export default function Hero() {
           </Link>
         </div>
       </div>
-      {/* This is where the hero image is located. */}
-      {supportsWebP ? (
-        <img
-          src={heroIllustration1024}
-          srcSet={`${heroIllustration512} 512w, ${heroIllustration1024} 1024w`}
-          sizes="(min-width: 1024px) 448px, 50vw"
-          width={1024}
-          height={1024}
-          fetchPriority="high"
-          alt=""
-          className="h-auto w-full max-w-md"
-        />
-      ) : (
-        <img
-          src={heroIllustrationPng}
-          width={1024}
-          height={1024}
-          fetchPriority="high"
-          alt=""
-          className="h-auto w-full max-w-md"
-        />
-      )}
+      <img
+        src={heroIllustration}
+        // srcSet={`${heroIllustration512} 512w, ${heroIllustration1024} 1024w`}
+        sizes="(min-width: 1024px) 448px, 50vw"
+        width={1024}
+        height={1024}
+        fetchPriority="high"
+        alt=""
+        className="h-auto w-full max-w-md"
+      />
     </section>
   );
 }

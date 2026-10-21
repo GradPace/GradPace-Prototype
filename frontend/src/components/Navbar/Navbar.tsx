@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { logout } from "../../lib/api/auth";
+import logo from "../../assets/logo-large-dark.png";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -13,13 +14,8 @@ export default function Navbar() {
     // <header> is the whole bar; border-b and border-line draws the header line
     <header className="bg-canvas">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-8 py-6">
-        {/*This is the log for now */}
-        {/* <a href="/" className="font-serif text-xl font-medium text-ink">
-          GradPace
-        </a> */}
-        <Link to="/" className="text-xl font-bold">
-          <span className="text-blue">Grad</span>
-          <span className="text-pink">Pace</span>
+        <Link to="/">
+          <img src={logo} alt="GradPace" className="h-7 w-auto" />
         </Link>
 
         {/* Center nav links. gap-8 spaces the links, each link changes color only on hover */}
