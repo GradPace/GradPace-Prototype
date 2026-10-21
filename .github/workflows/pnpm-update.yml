@@ -1,0 +1,121 @@
+name: Update pnpm
+
+# Dependabot doesn't update package.json's "packageManager" field, which is
+# what pins the pnpm version Corepack installs (Dockerfile, CI, local). This
+# does it instead: once a week, if a newer pnpm is out, it bumps
+# "packageManager" in frontend/ and e2e/, regenerates both lockfiles (pnpm
+# records its own version in them too), and opens a PR into
+# GP-2-dependencies alongside dependabot's.
+#
+# A PR opened with the built-in GITHUB_TOKEN doesn't trigger other workflows,
+# so test-and-e2e.yml won't run on it - the frontend checks run here instead,
+# before the PR is opened. The "Allow GitHub Actions to create and approve
+# pull requests" repo setting must be on for the PR step to work.
+#
+# Each version gets its own branch (pnpm/pnpm-<version>), so a version that
+# already has one - an open PR, or one closed without merging - is skipped.
+on:
+  schedule:
+    # Mondays, shortly after dependabot's 10:00 run.
+    - cron: "30 10 * * 1"
+      timezone: "America/New_York"
+  workflow_dispatch:
+
+concurrency:
+  group: pnpm-update
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: gradpace-light
+    steps:
+      - name: Checkout dependencies branch
+        uses: actions/checkout@v7
+        with:
+          ref: GP-2-dependencies
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+
+      - name: Check for a newer pnpm
+        id: check
+        run: |
+          latest=$(npm view pnpm@latest version)
+          # packageManager is "pnpm@<version>", optionally followed by "+<hash>".
+          pinned() { node -p "require('./$1/package.json').packageManager.split('@')[1].split('+')[0]"; }
+          frontend=$(pinned frontend)
+          e2e=$(pinned e2e)
+          branch="pnpm/pnpm-$latest"
+          {
+            echo "latest=$latest"
+            echo "frontend=$frontend"
+            echo "e2e=$e2e"
+            echo "branch=$branch"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$frontend" = "$latest" ] && [ "$e2e" = "$latest" ]; then
+            echo "pnpm is already on $latest everywhere."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "$branch already exists - skipping."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump packageManager and regenerate lockfiles
+        if: steps.check.outputs.needed == 'true'
+        env:
+          LATEST: ${{ steps.check.outputs.latest }}
+        run: |
+          # Node 26 no longer bundles Corepack, so it must be installed before it can be enabled.
+          npm install -g corepack
+          corepack enable
+          for dir in frontend e2e; do
+            sed -i -E "s/\"packageManager\": \"pnpm@[^\"]*\"/\"packageManager\": \"pnpm@$LATEST\"/" "$dir/package.json"
+            (cd "$dir" && pnpm install --no-frozen-lockfile)
+          done
+
+      - name: Lint, typecheck, and unit test the frontend
+        if: steps.check.outputs.needed == 'true'
+        run: make test-frontend
+
+      - name: Build the frontend
+        if: steps.check.outputs.needed == 'true'
+        working-directory: frontend
+        run: pnpm build
+
+      - name: Open PR
+        if: steps.check.outputs.needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.check.outputs.latest }}
+          FRONTEND: ${{ steps.check.outputs.frontend }}
+          E2E: ${{ steps.check.outputs.e2e }}
+          BRANCH: ${{ steps.check.outputs.branch }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add frontend/package.json frontend/pnpm-lock.yaml e2e/package.json e2e/pnpm-lock.yaml
+          git commit -m "build(deps-dev): bump pnpm to $LATEST"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base GP-2-dependencies \
+            --head "$BRANCH" \
+            --title "build(deps-dev): bump pnpm to $LATEST" \
+            --body "$(cat <<EOF
+          Bumps the \`packageManager\` pin, and the lockfile's own pnpm entry, to pnpm $LATEST:
+
+          - \`frontend/\`: $FRONTEND → $LATEST
+          - \`e2e/\`: $E2E → $LATEST
+
+          Opened by \`.github/workflows/pnpm-update.yml\`. CI doesn't run on PRs opened by that workflow, so it ran the frontend checks itself (\`make test-frontend\` and \`pnpm build\`) before opening this - see the workflow run for the output.
+          EOF
+          )"

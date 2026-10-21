@@ -4,6 +4,7 @@ from .base import *
 
 DEBUG = False
 SECRET_KEY = 'django-insecure-test-key-not-a-secret'
+SALT_KEY = 'test-only-salt-not-a-secret'
 ALLOWED_HOSTS = ['*']
 
 # In-memory database - fast, discarded after the run.
@@ -20,6 +21,10 @@ PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 # accounts.validators.PwnedPasswordValidator - never make the suite depend on
 # network access / a third-party API's availability.
 PWNED_PASSWORDS_CHECK_ENABLED = False
+
+# Same reason - accounts/tests/test_turnstile.py turns it back on per test
+# with Cloudflare's siteverify response mocked.
+TURNSTILE_ENABLED = False
 
 # In-memory mailer - sent messages land in django.core.mail.outbox for asserts.
 MAILERS = {

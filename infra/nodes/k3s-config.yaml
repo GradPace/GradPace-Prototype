@@ -1,0 +1,9 @@
+# Installed as /etc/rancher/k3s/config.yaml on BOTH nodes (steyaert-mgr
+# and steyaert-worker). k3s merges this with its command-line flags.
+#
+# Kubelet's default deletes unused container images only once the disk is
+# 85% full. CI pulls a new image tag on every build, so start cleaning up
+# at 50% and stop once usage is back under 40%.
+kubelet-arg:
+  - "image-gc-high-threshold=50"
+  - "image-gc-low-threshold=40"

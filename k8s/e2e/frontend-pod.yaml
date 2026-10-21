@@ -1,0 +1,62 @@
+# Throwaway e2e dev frontend - same image/command docker-compose.dev.yml's
+# frontend service used, just as a pod instead of a compose service. See
+# backend-pod.yaml for __CHECKOUT_PATH__/hostNetwork/nodeSelector reasoning.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: frontend
+  namespace: gradpace-e2e
+  labels:
+    app: e2e-frontend
+spec:
+  nodeSelector:
+    kubernetes.io/hostname: steyaert-mgr
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  restartPolicy: Never
+  containers:
+    - name: frontend
+      image: node:26-alpine
+      workingDir: /app
+      env:
+        # Without this, corepack's first-run download prompt waits on
+        # stdin, which a detached pod never attaches - it just hangs.
+        - name: COREPACK_ENABLE_DOWNLOAD_PROMPT
+          value: "0"
+      command:
+        - sh
+        - -c
+        # canvas (added for jsdom's toDataURL in Hero.test.tsx) has no
+        # prebuilt binary for musl/Alpine, so pnpm install falls back to
+        # node-gyp rebuild - these are node-canvas's own documented Alpine
+        # build deps for that to succeed. Same packages docker-compose.dev.yml
+        # installs for the same reason.
+        - >-
+          apk add --no-cache python3 make g++ pkgconfig
+          cairo-dev pango-dev jpeg-dev giflib-dev librsvg-dev &&
+          npm install -g corepack && corepack enable && pnpm install && pnpm dev --host
+      # See backend-pod.yaml. Higher memory limit than the backend: a cold
+      # pnpm install plus canvas's g++ compile is the heaviest moment.
+      resources:
+        requests:
+          cpu: 200m
+          memory: 512Mi
+        limits:
+          cpu: "1"
+          memory: 1536Mi
+      volumeMounts:
+        - name: checkout
+          mountPath: /app
+        # Persistent hostPath, not emptyDir - see backend-pod.yaml. A cold
+        # pnpm install here is what actually blew the 60s health-check wait.
+        - name: node-modules
+          mountPath: /app/node_modules
+  volumes:
+    - name: checkout
+      hostPath:
+        path: __CHECKOUT_PATH__/frontend
+        type: Directory
+    - name: node-modules
+      hostPath:
+        path: /srv/e2e-cache/frontend-node-modules
+        type: DirectoryOrCreate

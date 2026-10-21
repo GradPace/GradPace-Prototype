@@ -3,6 +3,7 @@ import Navbar from "../../components/Navbar/Navbar";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { ApiError, apiFetch, apiGet } from "../../lib/api/api";
+import Turnstile from "../../components/Turnstile/Turnstile";
 
 /*
  * login page
@@ -12,6 +13,10 @@ import { ApiError, apiFetch, apiGet } from "../../lib/api/api";
 export default function LoginPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  // Turnstile token - submit stays disabled until the challenge passes.
+  // Bumping turnstileKey remounts the widget for a fresh (single-use) token.
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileKey, setTurnstileKey] = useState(0);
 
   // This function job is, on click to take the username and password input and send it
   // to /api/auth/login/ (located @ backend/accounts/urls.py) to see if it's correct
@@ -26,10 +31,14 @@ export default function LoginPage() {
       }>("/api/auth/login/", {
         email: form.get("email"),
         password: form.get("password"),
+        cf_turnstile_response: turnstileToken,
       });
       localStorage.setItem("access", access);
       localStorage.setItem("refresh", refresh);
     } catch (err) {
+      // The token was used up by this attempt - get a new one.
+      setTurnstileToken(null);
+      setTurnstileKey((key) => key + 1);
       // A network-level failure (CORS block, backend unreachable) throws a
       // plain Error too ("Failed to fetch"), not just ApiError - err.message
       // covers both instead of only showing validation errors.
@@ -90,11 +99,18 @@ export default function LoginPage() {
               />
             </label>
 
+            <Turnstile
+              key={turnstileKey}
+              action="login"
+              onToken={setTurnstileToken}
+            />
+
             {error && <p className="mt-2 text-sm text-pink">{error}</p>}
 
             <button
               type="submit"
-              className="mt-2 w-full rounded-full bg-blue py-3 text-sm font-semibold text-white transition-colors hover:bg-blue/90"
+              disabled={!turnstileToken}
+              className="mt-2 w-full rounded-full bg-blue py-3 text-sm font-semibold text-white transition-colors hover:bg-blue/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Log in
             </button>

@@ -1,0 +1,93 @@
+name: Sync dependencies branch
+
+# Keeps GP-2-dependencies (the branch dependabot targets - see
+# .github/dependabot.yml) in place and caught up with main, so its update PRs
+# are built on current manifests instead of conflicting with whatever landed
+# on main since.
+#
+# The repo deletes a PR's head branch when the PR merges, so merging a
+# "GP-xx: Dependency updates" PR deletes GP-2-dependencies. GitHub also
+# retargets any open PRs based on a deleted branch to main. So this:
+#   1. recreates the branch from main if it's gone - right after that merge,
+#      main has everything the branch had, so nothing is lost;
+#   2. otherwise brings main into it - a fast-forward when nothing else landed
+#      on main in between, a merge commit when something did. A merge conflict
+#      fails this run (GitHub emails about the failed run) - resolve it by
+#      merging main into GP-2-dependencies locally;
+#   3. points any open dependabot/pnpm PRs that got moved onto main back at
+#      GP-2-dependencies.
+#
+# Pushes made with the built-in GITHUB_TOKEN don't trigger other workflows, so
+# this can't set off a loop.
+on:
+  push:
+    branches:
+      - main
+  # Fires for any deleted branch or tag; the job below ignores all but
+  # GP-2-dependencies.
+  delete:
+  workflow_dispatch:
+
+concurrency:
+  group: sync-dependencies-branch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  BRANCH: GP-2-dependencies
+
+jobs:
+  sync:
+    if: github.event_name != 'delete' || (github.event.ref_type == 'branch' && github.event.ref == 'GP-2-dependencies')
+    runs-on: gradpace-light
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Recreate or update the dependencies branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+
+          if ! git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            git push origin "origin/main:refs/heads/$BRANCH"
+            echo "Recreated $BRANCH from main."
+            exit 0
+          fi
+
+          git fetch origin "$BRANCH"
+          git checkout -B "$BRANCH" "origin/$BRANCH"
+
+          if git merge-base --is-ancestor origin/main HEAD; then
+            echo "$BRANCH already has everything on main."
+            exit 0
+          fi
+
+          if git merge --ff-only origin/main; then
+            echo "Fast-forwarded $BRANCH to main."
+          elif git merge --no-edit -m "Merge main into $BRANCH" origin/main; then
+            echo "Merged main into $BRANCH."
+          else
+            echo "::error::main conflicts with $BRANCH - merge main into it locally and resolve the conflicts."
+            git merge --abort
+            exit 1
+          fi
+
+          git push origin "HEAD:$BRANCH"
+
+      - name: Point dependency PRs back at the dependencies branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr list --base main --state open --json number,headRefName \
+            --jq '.[] | select(.headRefName | startswith("dependabot/") or startswith("pnpm/")) | .number' |
+          while read -r pr; do
+            gh pr edit "$pr" --base "$BRANCH"
+            echo "Moved #$pr back onto $BRANCH."
+          done

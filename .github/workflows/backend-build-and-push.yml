@@ -1,69 +1,85 @@
 name: Build and Push Backend to GHCR
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Test and e2e"]
+    types:
+      - completed
     branches:
       - main
-    paths:
-      - 'backend/**'
-      # Docs-only changes (e.g. the schema diagram) shouldn't rebuild/push/
-      # redeploy the image - nothing the container runs actually changed.
-      - '!backend/docs/**'
-
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
   # Hardcoded lowercase: GHCR repo refs must be all-lowercase, but this repo's
-  # actual name (github.repository) is mixed-case, and must match what
-  # docker-compose.prod.yml pulls (ghcr.io/gradpace/gradpace-prototype/backend).
+  # actual name (github.repository) is mixed-case, and must match the image
+  # k8s/backend-deployment.yaml pulls (ghcr.io/gradpace/gradpace-prototype/backend).
   IMAGE_NAME: gradpace/gradpace-prototype/backend
 
 jobs:
-  test:
-    # Self-hosted: keeps growing test-suite minutes off the GH Actions quota.
-    # Only triggers on push to main right now (see `on:` above), not on PRs -
-    # if a pull_request trigger is ever added, self-hosted runners execute
-    # whatever the PR's workflow contains, so gate it to trusted authors.
-    runs-on: self-hosted
-
+  changes:
+    # Test and e2e runs once for a push touching backend/ and/or frontend/,
+    # and its completion triggers this workflow AND
+    # frontend-build-and-push.yml both - without this check, a
+    # frontend-only change would also rebuild/push/redeploy the backend
+    # image for nothing.
+    runs-on: gradpace-light
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      actions: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend || 'true' }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.1.0
-        with:
-          python-version: "3.14"
-
-      - name: Install dependencies
-        working-directory: backend
-        run: uv sync --locked
-
-      - name: Run checks, lint, and test suite
-        run: make test-backend
-
-      - name: Prune uv cache
-        # Runs even if tests fail. This is a persistent self-hosted box, so
-        # uv's cache accumulates on disk across every run instead of getting
-        # thrown away like an ephemeral GH-hosted runner's would.
-        if: always()
-        working-directory: backend
-        run: uv cache prune --ci
+      - name: Check whether Test and e2e actually tested backend/
+        # test-and-e2e.yml already path-filtered this push - its
+        # test-backend job only runs (rather than skips) when backend/
+        # changed, so reuse that answer instead of re-diffing here.
+        id: filter
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conclusion=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs" \
+            --jq '.jobs[] | select(.name == "test-backend") | .conclusion')
+          echo "test-backend conclusion: ${conclusion:-<none>}"
+          if [ "$conclusion" = "success" ]; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+          fi
 
   build-and-push:
-    needs: test
-    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    # The runner pod only hands the build to the shared BuildKit builder
+    # (infra/arc/buildkit.yaml), which keeps the layer cache.
+    runs-on: gradpace-build
     permissions:
       contents: read
       packages: write
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4 
+      - name: Resolve the exact commit SHA that triggered this build
+        # github.sha in a workflow_run-triggered job is documented as "the
+        # most recent commit on the default branch at run time", not
+        # necessarily the commit that actually triggered this run - using
+        # workflow_run.head_sha (with a github.sha fallback for
+        # workflow_dispatch) avoids tagging the wrong commit's image if
+        # another push lands in between.
+        id: sha
+        run: |
+          echo "short=$(echo '${{ github.event.workflow_run.head_sha || github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Use the shared builder
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver: remote
+          endpoint: tcp://buildkitd.arc-runners:1234
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -74,23 +90,21 @@ jobs:
 
       - name: Extract metadata (tags, labels)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=sha,prefix=sha-
+            type=raw,value=sha-${{ steps.sha.outputs.short }}
             type=raw,value={{date 'YYYY-MM-DD-HHmmss' tz='America/New_York'}}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64

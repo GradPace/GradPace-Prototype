@@ -1,7 +1,11 @@
+from unittest.mock import patch
+
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import IntegrityError
 
 from ..factories import UserFactory
+from ..serializers import RegisterSerializer
 from .helpers import PASSWORD
 
 User = get_user_model()
@@ -42,6 +46,35 @@ def test_register_rejects_duplicate_email_regardless_of_case(client):
         },
         content_type='application/json',
     )
+
+    assert response.status_code == 400
+    assert 'email' in response.json()
+
+
+@pytest.mark.django_db
+def test_database_rejects_emails_differing_only_by_case():
+    UserFactory(email='Taken@Example.com')
+
+    with pytest.raises(IntegrityError):
+        UserFactory(email='taken@example.com')
+
+
+@pytest.mark.django_db
+def test_register_returns_400_when_it_loses_a_race_for_the_email(client):
+    """Another request registers the same email between validate_email's
+    check and the insert - the unique_email_ci constraint catches it."""
+    UserFactory(email='Taken@Example.com')
+
+    with patch.object(RegisterSerializer, 'validate_email', side_effect=lambda value: value):
+        response = client.post(
+            '/api/auth/register/',
+            {
+                'email': 'taken@example.com',
+                'password': PASSWORD,
+                'password_confirm': PASSWORD,
+            },
+            content_type='application/json',
+        )
 
     assert response.status_code == 400
     assert 'email' in response.json()

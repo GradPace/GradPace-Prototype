@@ -1,0 +1,24 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend
+  namespace: gradpace
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  # 2, not 1: each pod is 1 Gunicorn worker (entrypoint.prod.sh), and the
+  # GIL lets only one of its threads hash a password at a time - a second
+  # pod lets concurrent logins/registrations actually hash in parallel.
+  # Capped at 3 for the prototype so a CPU spike can't scale the backend
+  # into the memory the worker's LLM / Minecraft / CI pods need.
+  minReplicas: 2
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

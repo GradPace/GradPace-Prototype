@@ -1,19 +1,48 @@
 """Production settings. Everything comes from the environment."""
 
+from django.core.exceptions import ImproperlyConfigured
+
 from config.settings import get_secret
 
 from .base import *
 
 SECRET_KEY = get_secret('SECRET_KEY')
 
+# Encrypted fields (accounts/fields.py) derive their key from SECRET_KEY +
+# SALT_KEY - refuse to start without one rather than fail on the first read.
+# Comma-separated, newest first: during a salt rotation the old salt stays
+# listed after the new one so existing rows still decrypt.
+raw_salts = get_secret('SALT_KEY', '')
+SALT_KEY = [salt.strip() for salt in raw_salts.split(',') if salt.strip()]
+if not SALT_KEY:
+    raise ImproperlyConfigured('SALT_KEY is not set.')
+
+# Comma-separated. When rotating SECRET_KEY, put the old one here - without
+# it, every encrypted value becomes unreadable.
+raw_fallbacks = get_secret('SECRET_KEY_FALLBACKS', '')
+SECRET_KEY_FALLBACKS = [key.strip() for key in raw_fallbacks.split(',') if key.strip()]
+
 DEBUG = False
+
+# Cloudflare Turnstile on login/register (accounts/turnstile.py). Refuse to
+# start rather than serve with it misconfigured: a missing secret would fail
+# every login, and one of Cloudflare's testing secrets (1x.../2x.../3x...
+# followed by zeros, see dev.py) would let every bot through.
+TURNSTILE_ENABLED = True
+TURNSTILE_SECRET_KEY = get_secret('TURNSTILE_SECRET_KEY')
+if not TURNSTILE_SECRET_KEY:
+    raise ImproperlyConfigured('TURNSTILE_SECRET_KEY is not set.')
+if TURNSTILE_SECRET_KEY[1:].startswith('x00000000'):
+    raise ImproperlyConfigured('TURNSTILE_SECRET_KEY is a Cloudflare testing key.')
 
 raw_hosts = get_secret('ALLOWED_HOSTS', '')
 ALLOWED_HOSTS = [host.strip() for host in raw_hosts.split(',') if host.strip()]
 
-# docker-compose.prod.yml's healthcheck hits localhost:8000 from inside the
-# container - only reachable there, never from the internet, so allowing it
-# unconditionally doesn't widen what's actually exposed.
+# Originally for docker-compose.prod.yml's internal healthcheck (now
+# removed - k8s/backend-deployment.yaml's readiness/liveness probes
+# override the Host header instead of relying on this, see its comments).
+# Left in since 'localhost' is only ever reachable from inside the pod
+# itself anyway, so it doesn't widen what's actually exposed either way.
 ALLOWED_HOSTS.append('localhost')
 
 
@@ -30,6 +59,11 @@ MIDDLEWARE.insert(
 # only: no real benefit in dev/test, and keeps it out of base.py.
 MIDDLEWARE.insert(0, 'django.middleware.gzip.GZipMiddleware')
 
+# JSON only - no browsable API in prod. DRF's default renderers include
+# BrowsableAPIRenderer, which serves a full HTML page to any browser and lets
+# anyone click through the whole API. Dev keeps it for poking around locally.
+REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = ['rest_framework.renderers.JSONRenderer']
+
 STORAGES = {
     'default': {
         'BACKEND': 'django.core.files.storage.FileSystemStorage',
@@ -37,6 +71,17 @@ STORAGES = {
     'staticfiles': {
         'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
     },
+}
+
+
+# Cache - shared across backend pods, so the auth throttles
+# (DEFAULT_THROTTLE_RATES) count every pod's requests together and survive a
+# deploy. Also backs the OpenAPI schema cache (config/urls.py). k8s/redis-*.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': get_secret('REDIS_URL', 'redis://redis:6379/0'),
+    }
 }
 
 
@@ -53,8 +98,9 @@ DATABASES = {
         'PORT': get_secret('DATABASE_PORT', 5432),
         # Reuse connections across requests instead of opening a new one each
         # time. Each Gunicorn thread holds its own (Django's DB connection is
-        # thread-local) - with 3 backend replicas x 4 threads, that's at most
-        # 12 concurrent connections, well under Postgres's default
+        # thread-local) - with up to 6 backend replicas (k8s/backend-hpa.yaml)
+        # x 4 threads, that's at most 24 concurrent connections, well under
+        # Postgres's default
         # max_connections (100). 5 minutes keeps connections warm across the
         # idle gaps between requests at this traffic level; CONN_HEALTH_CHECKS
         # guards against a connection going stale during that window (e.g. a
@@ -71,10 +117,10 @@ DATABASES = {
 # Security - behind an HTTPS-terminating reverse proxy.
 
 SECURE_SSL_REDIRECT = True
-# The healthcheck (docker-compose.prod.yml) hits localhost:8000 over plain
-# HTTP from inside the container, where nothing terminates TLS - without
-# this it 301s to https, which then fails to connect, so Docker sees it as
-# unhealthy even though the app is fine.
+# k8s/backend-deployment.yaml's readiness/liveness probes hit this path
+# over plain HTTP from inside the pod, where nothing terminates TLS -
+# without this it 301s to https, which then fails to connect, so k8s sees
+# it as unhealthy even though the app is fine.
 SECURE_REDIRECT_EXEMPT = [r'^core/healthcheck/$']
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
@@ -103,11 +149,16 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins.split(',') if o.strip()]
 MAILERS = {
     'default': {
         'BACKEND': get_secret('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend'),
-        'HOST': get_secret('EMAIL_HOST', 'mail'),
-        'PORT': int(get_secret('EMAIL_PORT', 25)),
-        'USERNAME': get_secret('EMAIL_HOST_USER', ''),
-        'PASSWORD': get_secret('EMAIL_HOST_PASSWORD', ''),
-        'USE_TLS': get_secret('EMAIL_USE_TLS', '') == '1',
+        'OPTIONS': {
+            'host': get_secret('EMAIL_HOST', 'mail'),
+            'port': int(get_secret('EMAIL_PORT', 25)),
+            'username': get_secret('EMAIL_HOST_USER', ''),
+            'password': get_secret('EMAIL_HOST_PASSWORD', ''),
+            'use_tls': get_secret('EMAIL_USE_TLS', '') == '1',
+            # Seconds. Without one, a hung mail server blocks the sending
+            # thread forever (see accounts/mail.py).
+            'timeout': 10,
+        },
     },
 }
 DEFAULT_FROM_EMAIL = get_secret('DEFAULT_FROM_EMAIL', 'noreply@gradpace.steyaert.xyz')

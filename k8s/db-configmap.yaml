@@ -1,0 +1,10 @@
+# Must stay identical to backend-config's DATABASE_NAME/DATABASE_USERNAME -
+# same values, just named POSTGRES_* here vs DATABASE_* there.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+  namespace: gradpace
+data:
+  POSTGRES_DB: "gradpace_db"
+  POSTGRES_USER: "gradpace"

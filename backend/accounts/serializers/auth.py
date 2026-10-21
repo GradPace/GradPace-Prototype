@@ -6,11 +6,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError, transaction
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from ..models import Role
+from ..turnstile import TOKEN_FIELD, verify_turnstile
 
 User = get_user_model()
 
@@ -18,6 +21,12 @@ User = get_user_model()
 # hashing cost on an absurdly long input - a DoS angle, not a security
 # control on its own - see AUTH_PASSWORD_VALIDATORS for the real rules).
 PASSWORD_FIELD_KWARGS = {'write_only': True, 'max_length': 64}
+
+# The Turnstile widget's token (see accounts/turnstile.py). Not `required` at
+# the field level - verify_turnstile() runs from validate() instead, since a
+# missing field would skip a validate_<field>() method entirely, and it's
+# skipped altogether when TURNSTILE_ENABLED is off (the test suite).
+TURNSTILE_FIELD_KWARGS = {'write_only': True, 'required': False, 'allow_blank': True}
 
 
 def run_password_validators(password, user=None):
@@ -40,30 +49,59 @@ class RegisterSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(**PASSWORD_FIELD_KWARGS)
     password_confirm = serializers.CharField(**PASSWORD_FIELD_KWARGS)
+    cf_turnstile_response = serializers.CharField(**TURNSTILE_FIELD_KWARGS)
 
     def validate_email(self, value):
-        # iexact - must match PasswordResetRequestView's lookup, or two users
-        # differing only by email case (Foo@x.com / foo@x.com) could both
-        # register, and a reset request for either raises MultipleObjectsReturned.
-        if User.objects.filter(email__iexact=value).exists():
+        # Case-insensitive, like the unique_email_ci constraint - which also
+        # catches two concurrent registrations that both get past this check.
+        if User.objects.filter(email__lower=value.lower()).exists():
             raise serializers.ValidationError('A user with that email already exists.')
         return value
 
     def validate(self, attrs):
+        # First - before the password validators, one of which calls out to
+        # Have I Been Pwned.
+        verify_turnstile(
+            attrs.pop(TOKEN_FIELD, ''), action='register', request=self.context.get('request')
+        )
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({'password_confirm': 'Passwords do not match.'})
         run_password_validators(attrs['password'])
         return attrs
 
     def create(self, validated_data):
-        student_role, _ = Role.objects.get_or_create(role_name='student')
-        return User.objects.create_user(
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            role=student_role,
+        # Seeded by migration 0002_seed_roles.
+        student_role = Role.objects.get(role_name='student')
+        try:
+            # atomic: a failed insert mustn't break an enclosing transaction.
+            with transaction.atomic():
+                return User.objects.create_user(
+                    email=validated_data['email'],
+                    password=validated_data['password'],
+                    first_name=validated_data.get('first_name', ''),
+                    last_name=validated_data.get('last_name', ''),
+                    role=student_role,
+                )
+        except IntegrityError:
+            # Lost a race with a concurrent registration for the same email
+            # (unique_email_ci) - same response as validate_email's.
+            raise serializers.ValidationError(
+                {'email': 'A user with that email already exists.'}
+            ) from None
+
+
+class LoginSerializer(TokenObtainPairSerializer):
+    """simplejwt's email/password -> token pair, plus a Turnstile check that
+    runs before authenticate() so a bot never gets as far as password
+    hashing."""
+
+    cf_turnstile_response = serializers.CharField(**TURNSTILE_FIELD_KWARGS)
+
+    def validate(self, attrs):
+        verify_turnstile(
+            attrs.pop(TOKEN_FIELD, ''), action='login', request=self.context.get('request')
         )
+        return super().validate(attrs)
 
 
 class PasswordChangeSerializer(serializers.Serializer):

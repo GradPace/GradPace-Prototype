@@ -21,7 +21,9 @@ class CustomUserAdmin(UserAdmin):
     model = CustomUser
     ordering = ['email']
     list_display = ['email', 'first_name', 'last_name', 'role', 'is_staff']
-    search_fields = ['email', 'first_name', 'last_name']
+    # first_name/last_name are encrypted at rest, so the database can't
+    # search them - only email.
+    search_fields = ['email']
     fieldsets = [
         (None, {'fields': ['email', 'password']}),
         ('Personal info', {'fields': ['first_name', 'last_name', 'role']}),

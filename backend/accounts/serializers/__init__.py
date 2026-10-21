@@ -1,5 +1,6 @@
 from .academic_records import CertificateSerializer, SkillSerializer, TakenClassSerializer
 from .auth import (
+    LoginSerializer,
     LogoutSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
@@ -16,6 +17,7 @@ from .student import (
 
 __all__ = [
     'CertificateSerializer',
+    'LoginSerializer',
     'LogoutSerializer',
     'PasswordChangeSerializer',
     'PasswordResetConfirmSerializer',

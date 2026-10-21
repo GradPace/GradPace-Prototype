@@ -1,0 +1,75 @@
+# Throwaway e2e dev backend - same image/command docker-compose.dev.yml's
+# backend service used, just as a pod instead of a compose service (see
+# backend/Dockerfile.dev's base image; graphviz isn't needed here since e2e
+# never calls `manage.py graph_models`). `make test-e2e` applies this with
+# __CHECKOUT_PATH__ substituted for the actual checkout dir (sed, since
+# hostPath can't reference an env var directly) and deletes the whole
+# gradpace-e2e namespace afterward.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: backend
+  namespace: gradpace-e2e
+  labels:
+    app: e2e-backend
+spec:
+  # Pinned to steyaert-mgr - the self-hosted e2e runner lives on this same
+  # node, so __CHECKOUT_PATH__ (its own GitHub Actions workspace for this
+  # job) is actually present as a hostPath here. Without this, the scheduler
+  # could place the pod on steyaert-worker, where that path doesn't exist.
+  nodeSelector:
+    kubernetes.io/hostname: steyaert-mgr
+  # hostNetwork binds the container straight to the node's real :8000 - same
+  # role docker-compose.dev.yml's `ports: "8000:8000"` played, and it means
+  # e2e/playwright.config.ts's http://localhost:8000 keeps working unchanged.
+  hostNetwork: true
+  dnsPolicy: ClusterFirstWithHostNet
+  restartPolicy: Never
+  containers:
+    - name: backend
+      image: ghcr.io/astral-sh/uv:python3.14-alpine
+      workingDir: /app
+      command:
+        - sh
+        - -c
+        - uv sync && uv run manage.py migrate && uv run manage.py runserver 0.0.0.0:8000
+      env:
+        - name: UV_PROJECT_ENVIRONMENT
+          value: /app/.venv
+        - name: PYTHONPYCACHEPREFIX
+          value: /pycache
+      # Small requests so these pods aren't BestEffort (first evicted, last
+      # to get CPU) on a busy steyaert-mgr; limits cap a runaway uv sync.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: "1"
+          memory: 768Mi
+      volumeMounts:
+        - name: checkout
+          mountPath: /app
+        # Persistent hostPath dirs, not emptyDir - same role the named
+        # docker volumes played in docker-compose.dev.yml: keep venv/
+        # pycache off the actual checkout AND reused across e2e runs
+        # instead of a cold `uv sync` every single time (an emptyDir here
+        # is wiped on every pod create, which on a slow registry connection
+        # pushed `make test-e2e`'s health-check wait past its timeout).
+        - name: venv
+          mountPath: /app/.venv
+        - name: pycache
+          mountPath: /pycache
+  volumes:
+    - name: checkout
+      hostPath:
+        path: __CHECKOUT_PATH__/backend
+        type: Directory
+    - name: venv
+      hostPath:
+        path: /srv/e2e-cache/backend-venv
+        type: DirectoryOrCreate
+    - name: pycache
+      hostPath:
+        path: /srv/e2e-cache/backend-pycache
+        type: DirectoryOrCreate

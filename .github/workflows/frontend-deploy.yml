@@ -2,6 +2,11 @@ name: Deploy to Production - Frontend
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to deploy, e.g. sha-1234567 (defaults to :latest - there's no commit SHA to derive one from on a manual run)"
+        required: false
+        type: string
   workflow_run:
     workflows: ["Build and Push Frontend to GHCR"]
     types:
@@ -10,15 +15,47 @@ on:
       - main
 
 concurrency:
-  # Shared with backend-deploy.yml - both `make deploy-*` targets act on the
-  # same docker-compose project/host, so serialize rather than race them.
+  # Shared with backend-deploy.yml - both `make deploy-*` targets act on
+  # the same k3s cluster, so serialize rather than race them.
   group: deploy-production
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    runs-on: self-hosted
+  changes:
+    # frontend-build-and-push.yml now runs (and reports success) on every
+    # push touching backend/ OR frontend/, even when its own build-and-push
+    # job skipped because frontend/ didn't actually change - without this
+    # check, a backend-only change would still trigger a deploy here,
+    # rolling out a sha-<...> tag whose image was never actually built or
+    # pushed (ImagePullBackOff, same class of bug this tag scheme exists
+    # to avoid in the first place).
+    runs-on: gradpace-light
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      actions: read
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend || 'true' }}
+    steps:
+      - name: Check whether an image was actually built and pushed
+        # See backend-deploy.yml's identical step.
+        id: filter
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          conclusion=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs" \
+            --jq '.jobs[] | select(.name == "build-and-push") | .conclusion')
+          echo "build-and-push conclusion: ${conclusion:-<none>}"
+          if [ "$conclusion" = "success" ]; then
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "frontend=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: changes
+    runs-on: self-hosted
+    if: needs.changes.outputs.frontend == 'true'
     # Creates a GitHub Deployment for this run - the "GitHub for Jira" app
     # picks these up automatically and shows them on linked issues (e.g.
     # GP-29) under Deployments, so long as the commit/branch/PR references
@@ -26,19 +63,11 @@ jobs:
     environment: production
     permissions:
       contents: read
-      packages: read
 
     steps:
-      # gradpace-prototype/frontend is a private GHCR package - `docker
-      # compose pull` needs to be authenticated first. Uses this run's own
-      # token (packages: read above), not a long-lived credential on the host.
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
+      # Image pulls now authenticate via the cluster's own `ghcr-pull`
+      # imagePullSecret (see k8s/frontend-deployment.yaml) - kubectl itself
+      # needs no GHCR credential, so there's no docker login step here.
       - name: Sync deploy scripts with main
         # /srv/prototype is a persistent checkout on this host, not something
         # actions/checkout populates - without this, Makefile/compose changes
@@ -51,12 +80,24 @@ jobs:
           git reset --hard FETCH_HEAD
 
       - name: Deploy to production
-        # Pin to this commit's own image instead of :latest - a service
-        # update can no-op if Swarm doesn't see the tag string change, even
-        # though the digest behind :latest moved (see Makefile).
+        # Pin to the triggering build's own image instead of :latest - a
+        # deployment update can no-op if kubectl doesn't see the tag string
+        # change, even though the digest behind :latest moved (see
+        # Makefile). Only a workflow_run has a head_sha to derive that tag
+        # from; a manual workflow_dispatch run has no associated build, so
+        # it deploys an explicit `tag` input or falls back to :latest
+        # rather than guessing a sha-<...> tag that was never built (the
+        # previous `github.sha` fallback here deployed a tag that didn't
+        # exist in GHCR and had to be fixed by hand).
         run: |
           cd /srv/prototype
-          make deploy-frontend TAG=sha-$(echo "${{ github.event.workflow_run.head_sha || github.sha }}" | cut -c1-7)
+          if [ -n "${{ github.event.workflow_run.head_sha }}" ]; then
+            TAG="sha-$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)"
+          else
+            TAG="${{ github.event.inputs.tag }}"
+            TAG="${TAG:-latest}"
+          fi
+          make deploy-frontend TAG="$TAG"
 
       - name: Verify the deployed bundle actually has the API URL baked in
         # Regression guard for GP-57 (VITE_API_URL missing from the built
@@ -65,8 +106,8 @@ jobs:
         run: |
           sleep 5
           FOUND=0
-          for c in $(docker ps -q -f "label=com.docker.swarm.service.name=gradpace_frontend"); do
-            if docker exec "$c" sh -c "grep -rl 'gradpace-api.steyaert.xyz' /usr/share/nginx/html/assets/*.js" >/dev/null 2>&1; then
+          for pod in $(kubectl get pods -n gradpace -l app=frontend -o jsonpath='{.items[*].metadata.name}'); do
+            if kubectl exec -n gradpace "$pod" -- sh -c "grep -rl 'gradpace-api.steyaert.xyz' /usr/share/nginx/html/assets/*.js" >/dev/null 2>&1; then
               FOUND=1
             fi
           done

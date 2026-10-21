@@ -1,0 +1,78 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: flush-expired-tokens
+  namespace: gradpace
+spec:
+  # Daily, off-peak. simplejwt records every issued refresh token in
+  # OutstandingToken (and every rotation blacklists one), so without this
+  # both token_blacklist tables only ever grow. flushexpiredtokens ships with
+  # simplejwt and deletes the rows whose token has already expired.
+  schedule: '0 4 * * *'
+  timeZone: America/New_York
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            - name: ghcr-pull
+          containers:
+            - name: flush-expired-tokens
+              # Same image as the backend deployment - `make deploy-backend`
+              # sets both to the deployed tag. :latest is only the
+              # manual-apply default.
+              image: ghcr.io/gradpace/gradpace-prototype/backend:latest
+              command: ['python', 'manage.py', 'flushexpiredtokens']
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: 250m
+                  memory: 256Mi
+              envFrom:
+                - configMapRef:
+                    name: backend-config
+              # Only what config/settings/prod.py needs to start and reach
+              # the database - SALT_KEY and TURNSTILE_SECRET_KEY because
+              # prod.py refuses to load without them.
+              env:
+                - name: SECRET_KEY_FILE
+                  value: /run/secrets/backend-secret-key/secret-key
+                - name: SALT_KEY_FILE
+                  value: /run/secrets/backend-salt-key/salt-key
+                - name: DATABASE_PASSWORD_FILE
+                  value: /run/secrets/db-password/password
+                - name: TURNSTILE_SECRET_KEY_FILE
+                  value: /run/secrets/turnstile-secret-key/secret-key
+              volumeMounts:
+                - name: backend-secret-key
+                  mountPath: /run/secrets/backend-secret-key
+                  readOnly: true
+                - name: backend-salt-key
+                  mountPath: /run/secrets/backend-salt-key
+                  readOnly: true
+                - name: db-password
+                  mountPath: /run/secrets/db-password
+                  readOnly: true
+                - name: turnstile-secret-key
+                  mountPath: /run/secrets/turnstile-secret-key
+                  readOnly: true
+          volumes:
+            - name: backend-secret-key
+              secret:
+                secretName: backend-secret-key
+            - name: backend-salt-key
+              secret:
+                secretName: backend-salt-key
+            - name: db-password
+              secret:
+                secretName: db-password
+            - name: turnstile-secret-key
+              secret:
+                secretName: turnstile-secret-key

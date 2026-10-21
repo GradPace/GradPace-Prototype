@@ -13,10 +13,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from .mail import send_in_background
 from .models import Certificate, Skill, StudentProfile, TakenClass
 from .serializers import (
     CertificateSerializer,
+    LoginSerializer,
     LogoutSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
@@ -30,6 +33,7 @@ from .serializers import (
     TokenPairSerializer,
     UserSerializer,
 )
+from .throttling import AuthRateThrottle
 
 User = get_user_model()
 
@@ -37,8 +41,12 @@ User = get_user_model()
 def _blacklist_all_outstanding_tokens(user):
     """Force logout everywhere - used after a password change/reset so an
     old/stolen refresh token can't keep minting new access tokens."""
-    for outstanding in OutstandingToken.objects.filter(user=user):
-        BlacklistedToken.objects.get_or_create(token=outstanding)
+    # One insert for all of them; ignore_conflicts skips tokens that are
+    # already blacklisted (BlacklistedToken.token is a OneToOneField).
+    BlacklistedToken.objects.bulk_create(
+        [BlacklistedToken(token=token) for token in OutstandingToken.objects.filter(user=user)],
+        ignore_conflicts=True,
+    )
 
 
 class RegisterView(APIView):
@@ -46,10 +54,13 @@ class RegisterView(APIView):
     as /login/), so the frontend doesn't need a separate post-signup login."""
 
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'register'
 
     @extend_schema(request=RegisterSerializer, responses={201: TokenPairSerializer})
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
+        # request in context: Turnstile verification reads the client IP.
+        serializer = RegisterSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
@@ -58,6 +69,23 @@ class RegisterView(APIView):
             {'access': str(refresh.access_token), 'refresh': str(refresh)},
             status=status.HTTP_201_CREATED,
         )
+
+
+class LoginView(TokenObtainPairView):
+    """Public - simplejwt's login, with LoginSerializer's Turnstile check in
+    front of it. Same response shape as before (access + refresh)."""
+
+    serializer_class = LoginSerializer
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'login'
+
+
+class RefreshView(TokenRefreshView):
+    """Public - simplejwt's refresh, throttled like the other auth
+    endpoints."""
+
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'refresh'
 
 
 class LogoutView(APIView):
@@ -106,6 +134,8 @@ class PasswordResetRequestView(APIView):
     emails a reset link built from settings.FRONTEND_URL."""
 
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'password_reset'
 
     @extend_schema(request=PasswordResetRequestSerializer, responses={200: None})
     def post(self, request):
@@ -113,7 +143,7 @@ class PasswordResetRequestView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
-            user = User.objects.get(email__iexact=serializer.validated_data['email'])
+            user = User.objects.get(email__lower=serializer.validated_data['email'].lower())
         except User.DoesNotExist:
             return Response(status=status.HTTP_200_OK)
 
@@ -133,7 +163,7 @@ class PasswordResetRequestView(APIView):
             to=[user.email],  # from_email defaults to DEFAULT_FROM_EMAIL
         )
         email.attach_alternative(html_body, 'text/html')
-        email.send()
+        send_in_background(email)
 
         return Response(status=status.HTTP_200_OK)
 
