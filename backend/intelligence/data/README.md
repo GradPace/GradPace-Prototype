@@ -12,9 +12,16 @@ resemblance to real organizations is coincidental.
 
 ## How generated_postings.json was made
 
-- **Allocation:** 400 postings are split across the 24 occupations in proportion to national employment, with a minimum of 3 each. An occupation whose share falls below 3 is pinned at 3 and the rest is re-split. Largest-remainder rounding makes the total exactly 400 (`allocate()` in `validate_postings.py`).
-- **Seniority mix:** 10% intern, 35% entry, 35% mid and 20% senior per occupation, again with largest-remainder rounding. The exception is 11-3021 (Computer and Information Systems Managers), which is fixed at 0/5/20/20, because management roles don't hire interns and skew senior.
-- **Locations and salaries:** salaries are anchored on the occupation's national median wage. Each salary range is median × seniority band × location multiplier, rounded to $1,000.
+- **Allocation:** 400 postings are split across the 24 occupations in proportion to national
+  employment, with a minimum of 3 each. An occupation whose share falls below 3 is pinned at 3
+  and the rest is re-split. Largest-remainder rounding makes the total exactly 400
+  (`allocate()` in `validate_postings.py`).
+- **Seniority mix:** 10% intern, 35% entry, 35% mid and 20% senior per occupation, again with
+  largest-remainder rounding. The exception is 11-3021 (Computer and Information Systems
+  Managers), which is fixed at 0/5/20/20, because management roles don't hire interns and skew
+  senior.
+- **Locations and salaries:** salaries are anchored on the occupation's national median wage.
+  Each salary range is median × seniority band × location multiplier, rounded to $1,000.
 
   | Location | Share | Multiplier |
   |---|---|---|
@@ -30,29 +37,35 @@ resemblance to real organizations is coincidental.
   | Mid | 0.90–1.10 |
   | Senior | 1.20–1.45 |
 
-- **Skills:** every skill is an exact name from that occupation's skills in `official_jobs.json`.
+- **Skills:** every skill is an exact name from that occupation's skills in
+  `official_jobs.json`.
   - Interns list 5–7 skills, entry and mid roles 5–12, and senior roles 9–12.
   - At least half are software skills whenever the occupation has 6 or more software skills.
-  - Three occupations have only 3–4 software skills (11-3021, 17-2072, 25-1021); their postings use all of them plus essential and transferable skills.
-- **Text:** titles, companies, and 2–4 sentence descriptions were written by an LLM (Claude), one occupation at a time. Companies come from a fixed list of 60 invented names, each web-searched beforehand, and four that resembled real businesses were replaced. The output was then checked with `validate_postings.py` and corrected until it passed.
+  - Three occupations have only 3–4 software skills (11-3021, 17-2072, 25-1021); their
+    postings use all of them plus essential and transferable skills.
+- **Text:** titles and 2–4 sentence descriptions were generated offline by an LLM (Claude),
+  one occupation at a time; nothing is generated at runtime. Companies come from the fixed
+  `FICTIONAL_COMPANIES` list in `validate_postings.py`, each name checked against real
+  businesses. The file must pass `validate_postings.py`.
 
 ## Rebuilding and validating
 
 Run from `backend/`:
 
 ```sh
-# official_jobs.json (needs the raw files in ~/gradPace/raw-data/)
-uv run --with openpyxl python intelligence/data/build_official_jobs.py
+# official_jobs.json (needs the raw BLS and O*NET files in the --raw-dir directory)
+uv run --with openpyxl python intelligence/data/build_official_jobs.py --raw-dir /path/to/raw-data
 
-# generated_postings.json
-python intelligence/data/validate_postings.py
+# check generated_postings.json
+uv run python intelligence/data/validate_postings.py
 
 # load both files into the database (safe to rerun; --dry-run validates only)
 uv run manage.py seed_jobs
 ```
 
 `validate_postings.py` checks:
-- the per-occupation allocation (400 total, proportional to employment, minimum 3) and seniority mix
+- the per-occupation allocation (400 total, proportional to employment, minimum 3) and
+  seniority mix
 - that every skill exists on the posting's occupation
 - that salaries fall inside the seniority band and location multiplier
 - that every company is on the fictional-company list

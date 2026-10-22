@@ -5,7 +5,7 @@ resemblance to real organizations is coincidental.
 
 Run from backend/ (standard library only):
 
-    python intelligence/data/validate_postings.py
+    uv run python intelligence/data/validate_postings.py
 
 Prints every problem found and exits 1 if there are any.
 """

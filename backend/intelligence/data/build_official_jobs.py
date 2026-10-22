@@ -1,7 +1,8 @@
-"""One-off build script for official_jobs.json, the official (BLS / O*NET) tech jobs the
-seed command loads.
+"""Build official_jobs.json from the raw BLS OEWS and O*NET files.
 
-Sources (kept outside the repo, default ~/gradPace/raw-data/):
+official_jobs.json holds the official (BLS / O*NET) tech jobs the seed command loads.
+
+Sources (kept outside the repo, in the directory passed as --raw-dir):
 - BLS OEWS May 2025 national estimates: oesm25nat/national_M2025_dl.xlsx
 - O*NET 31.0 database, Excel version: db_31_0_excel/
 
@@ -11,7 +12,7 @@ Database by the U.S. Department of Labor, Employment and Training Administration
 
 Run from backend/ (openpyxl is pulled in for this run only, not added to pyproject.toml):
 
-    uv run --with openpyxl python intelligence/data/build_official_jobs.py
+    uv run --with openpyxl python intelligence/data/build_official_jobs.py --raw-dir <dir>
 """
 
 import argparse
@@ -220,7 +221,9 @@ def validate(jobs, skipped, candidates):
             raise ValueError(f'{code}: unknown skill types {sorted(types - SKILL_TYPES)}')
         general = [s for s in job['skills'] if s['type'] != 'software']
         if len(general) != GENERAL_SKILL_COUNT:
-            raise ValueError(f'{code}: {len(general)} general skills, expected 10')
+            raise ValueError(
+                f'{code}: {len(general)} general skills, expected {GENERAL_SKILL_COUNT}'
+            )
         if not all(s['importance'] is not None and 1 <= s['importance'] <= 5 for s in general):
             raise ValueError(f'{code}: general skill importance missing or outside 1-5')
         if any(s['importance'] is not None for s in job['skills'] if s['type'] == 'software'):
@@ -229,7 +232,12 @@ def validate(jobs, skipped, candidates):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument('--raw-dir', type=Path, default=Path('~/gradPace/raw-data').expanduser())
+    parser.add_argument(
+        '--raw-dir',
+        type=Path,
+        required=True,
+        help=f'Directory containing {BLS_FILE} and {ONET_DIR}/.',
+    )
     parser.add_argument(
         '--out', type=Path, default=Path(__file__).resolve().parent / 'official_jobs.json'
     )

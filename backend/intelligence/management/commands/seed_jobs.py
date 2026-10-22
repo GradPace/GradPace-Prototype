@@ -93,6 +93,7 @@ class Command(BaseCommand):
                 continue
             job = Job(soc_code=code, source=data.get('source'), **self.pick(data, JOB_FIELDS))
             errors += self.clean(label, job)
+            # write()'s update_or_create would raise MultipleObjectsReturned on these.
             if Job.objects.filter(soc_code=code, source=job.source).count() > 1:
                 errors.append(f'{label}: more than one {job.source} Job in the database')
 
@@ -120,8 +121,8 @@ class Command(BaseCommand):
             if code not in skill_names:
                 errors.append(f'{label}: soc_code not in the jobs file')
                 continue
-            # Skills are looked up by name on the posting's own job, so they can only
-            # ever belong to that job - unknown names are the failure case.
+            # write() looks skills up on the posting's own job, so an unknown name is the
+            # only way to fail.
             unknown = [name for name in data.get('skills', []) if name not in skill_names[code]]
             if unknown:
                 errors.append(f'{label}: skills not on {code}: {unknown}')
@@ -156,9 +157,10 @@ class Command(BaseCommand):
         for data in postings_data:
             job = jobs[data['soc_code']]
             fields = self.posting_fields(data)
+            lookup = {field: fields.pop(field) for field in POSTING_KEY}
             posting, created = JobPosting.objects.update_or_create(
                 job=job,
-                **{field: fields.pop(field) for field in POSTING_KEY},
+                **lookup,
                 defaults=fields,
             )
             counts['Postings', created] += 1
