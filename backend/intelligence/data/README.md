@@ -46,6 +46,9 @@ uv run --with openpyxl python intelligence/data/build_official_jobs.py
 
 # generated_postings.json
 python intelligence/data/validate_postings.py
+
+# load both files into the database (safe to rerun; --dry-run validates only)
+uv run manage.py seed_jobs
 ```
 
 `validate_postings.py` checks:
