@@ -20,12 +20,12 @@ export default function Navbar() {
 
         {/* Center nav links. gap-8 spaces the links, each link changes color only on hover */}
         <nav className="flex items-center gap-8 text-sm text-slate">
-          <a
-            href="#features"
+          <Link
+            to="/features"
             className="text-blue/70 transition-colors hover:text-blue"
           >
             Features
-          </a>
+          </Link>
           <Link
             to="/how-it-works"
             className="text-blue/70 transition-colors hover:text-blue"
