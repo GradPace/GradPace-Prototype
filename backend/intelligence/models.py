@@ -1,7 +1,9 @@
 import uuid
 
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import F, Q
 
 
 class Job(models.Model):
@@ -59,3 +61,77 @@ class JobSkill(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.job.title})'
+
+
+def validate_skills_belong_to_job(job, skills):
+    """A posting may only list skills of its own job. The database can't enforce
+    this across the many-to-many, so JobPosting.set_skills, JobPosting.clean and
+    the admin form all call this."""
+    foreign = [skill.name for skill in skills if skill.job_id != job.pk]
+    if foreign:
+        raise ValidationError(
+            {'skills': f'Skills must belong to {job.title}: {", ".join(sorted(foreign))}'}
+        )
+
+
+class JobPosting(models.Model):
+    """A job posting for one Job, listing a subset of that job's skills. Only
+    generated postings exist for now."""
+
+    SENIORITY_CHOICES = [
+        ('intern', 'Intern'),
+        ('entry', 'Entry level'),
+        ('mid', 'Mid level'),
+        ('senior', 'Senior'),
+    ]
+    SOURCE_CHOICES = [
+        ('generated', 'Generated'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='postings')
+    title = models.CharField(max_length=200)
+    company = models.CharField(max_length=200)
+    # e.g. 'Norfolk, VA' or 'Remote'.
+    location = models.CharField(max_length=200)
+    seniority = models.CharField(max_length=20, choices=SENIORITY_CHOICES)
+    salary_min = models.PositiveIntegerField(null=True, blank=True)
+    salary_max = models.PositiveIntegerField(null=True, blank=True)
+    description = models.TextField()
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES)
+    # Must be skills of `job` - see validate_skills_belong_to_job.
+    skills = models.ManyToManyField(JobSkill, related_name='postings', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(salary_min__isnull=True)
+                | Q(salary_max__isnull=True)
+                | Q(salary_min__lte=F('salary_max')),
+                name='posting_salary_min_lte_max',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.title} at {self.company}'
+
+    def clean(self):
+        if (
+            self.salary_min is not None
+            and self.salary_max is not None
+            and self.salary_min > self.salary_max
+        ):
+            raise ValidationError({'salary_max': 'Must be at least salary_min.'})
+        # Skills only exist once the posting is saved - the admin form checks the
+        # unsaved selection itself.
+        if self.job_id and not self._state.adding:
+            validate_skills_belong_to_job(self.job, self.skills.all())
+
+    def set_skills(self, skills):
+        """Replace this (saved) posting's skills, rejecting any from another job
+        before anything is written."""
+        skills = list(skills)
+        validate_skills_belong_to_job(self.job, skills)
+        self.skills.set(skills)
