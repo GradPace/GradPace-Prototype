@@ -11,6 +11,7 @@ model, and student profiles (classes taken, certificates, skills). See
 - [Settings](#settings)
 - [Common tasks](#common-tasks)
   - [Changed a model?](#changed-a-model)
+  - [Loading job data](#loading-job-data)
 - [Encrypted fields](#encrypted-fields)
 - [Deploying](#deploying)
 
@@ -72,6 +73,19 @@ uv run manage.py migrate
 
 Review the generated migration before committing it - GradPace doesn't
 squash or hand-edit migrations.
+
+### Loading job data
+
+The `intelligence` app holds tech occupations (BLS + O*NET), their skills,
+and 400 synthetic job postings. Load them after migrating:
+
+```bash
+uv run manage.py migrate
+uv run manage.py seed_jobs   # safe to rerun; --dry-run validates only
+```
+
+See [intelligence/data/README.md](intelligence/data/README.md) for where the
+data comes from and how it was built.
 
 ## Encrypted fields
 
