@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
  * Homepage hero - headline, subhead, CTAs, and a graphic placeholder
  */
 export default function Hero() {
+  const isLoggedIn = Boolean(localStorage.getItem("access"));
   return (
     <section className="mx-auto grid max-w-6xl grid-cols-2 items-center gap-16 px-8 py-28">
       <div className="max-w-md">
@@ -20,18 +21,29 @@ export default function Hero() {
         </p>
 
         <div className="mt-8 flex items-center gap-6">
-          <Link
-            to="/signup"
-            className="rounded-md bg-blue px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue/90"
-          >
-            Get started
-          </Link>
-          <Link
-            to="/login"
-            className="text-sm text-slate transition-colors hover:text-pink"
-          >
-            Already have an account? Sign in
-          </Link>
+          {isLoggedIn ? (
+            <Link
+              to="/profile"
+              className="rounded-md bg-blue px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue/90"
+            >
+              Go to your profile
+            </Link>
+          ) : (
+            <>
+              <Link
+                to="/signup"
+                className="rounded-md bg-blue px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue/90"
+              >
+                Get started
+              </Link>
+              <Link
+                to="/login"
+                className="text-sm text-slate transition-colors hover:text-pink"
+              >
+                Already have an account? Sign in
+              </Link>
+            </>
+          )}
         </div>
       </div>
       <img

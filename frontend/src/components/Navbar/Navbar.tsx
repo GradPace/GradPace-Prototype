@@ -26,12 +26,12 @@ export default function Navbar() {
           >
             Features
           </a>
-          <a
-            href="#how-it-works"
+          <Link
+            to="/how-it-works"
             className="text-blue/70 transition-colors hover:text-blue"
           >
             How it works
-          </a>
+          </Link>
           <a
             href="#about"
             className="text-blue/70 transition-colors hover:text-blue"
@@ -43,13 +43,21 @@ export default function Navbar() {
         {/*Right side auth action. "Log in" and "Sign up" */}
         <div className="flex items-center gap-6">
           {isLoggedIn ? (
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-md bg-blue px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue/90"
-            >
-              Log out
-            </button>
+            <>
+              <Link
+                to="/profile"
+                className="text-sm text-blue/70 transition-colors hover:text-blue"
+              >
+                Profile
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-md bg-blue px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue/90"
+              >
+                Log out
+              </button>
+            </>
           ) : (
             <>
               <Link
