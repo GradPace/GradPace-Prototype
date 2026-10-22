@@ -20,4 +20,5 @@ class JobSkillFactory(factory.django.DjangoModelFactory):
 
     job = factory.SubFactory(JobFactory)
     name = factory.Sequence(lambda n: f'Skill {n}')
+    skill_type = 'essential'
     importance = 3.5

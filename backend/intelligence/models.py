@@ -36,9 +36,17 @@ class Job(models.Model):
 class JobSkill(models.Model):
     """A skill a Job calls for. Unique per (job, name)."""
 
+    # O*NET's own categories, named after the file each skill comes from.
+    SKILL_TYPE_CHOICES = [
+        ('essential', 'Essential'),
+        ('transferable', 'Transferable'),
+        ('software', 'Software'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name='skills')
     name = models.CharField(max_length=100)
+    skill_type = models.CharField(max_length=20, choices=SKILL_TYPE_CHOICES)
     # O*NET importance scale, 1-5.
     importance = models.FloatField(
         null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(5)]

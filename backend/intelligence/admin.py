@@ -5,6 +5,7 @@ from .models import Job, JobSkill
 
 class JobSkillInline(admin.TabularInline):
     model = JobSkill
+    fields = ['name', 'skill_type', 'importance']
     extra = 0
 
 
@@ -13,4 +14,7 @@ class JobAdmin(admin.ModelAdmin):
     inlines = [JobSkillInline]
 
 
-admin.site.register(JobSkill)
+@admin.register(JobSkill)
+class JobSkillAdmin(admin.ModelAdmin):
+    list_display = ['name', 'job', 'skill_type', 'importance']
+    list_filter = ['skill_type']
