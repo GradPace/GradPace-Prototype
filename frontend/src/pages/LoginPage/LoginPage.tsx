@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import Navbar from "../../components/Navbar/Navbar";
+import { Navigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { ApiError, apiFetch, apiGet } from "../../lib/api/api";
@@ -59,6 +60,10 @@ export default function LoginPage() {
         navigate("/", { replace: true });
       }
     }
+  }
+
+  if (localStorage.getItem("access")) {
+    return <Navigate to="/profile" replace />;
   }
 
   return (

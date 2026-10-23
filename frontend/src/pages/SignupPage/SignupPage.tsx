@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../../lib/api/api";
 import Navbar from "../../components/Navbar/Navbar";
+import { Navigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import Turnstile from "../../components/Turnstile/Turnstile";
 
@@ -48,6 +49,10 @@ export default function SignupPage() {
           : "Could not create account. Check your details and try again.",
       );
     }
+  }
+
+  if (localStorage.getItem("access")) {
+    return <Navigate to="/profile" replace />;
   }
 
   return (
