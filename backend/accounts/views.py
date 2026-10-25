@@ -227,7 +227,7 @@ class ProfileView(APIView):
     )
     def patch(self, request):
         """Partially update the caller's student profile (name, major, uni,
-        location, graduated). student_id is not editable here - 404 if no
+        location, target_job, graduated). student_id is not editable here - 404 if no
         profile exists yet."""
         try:
             profile = request.user.student_profile

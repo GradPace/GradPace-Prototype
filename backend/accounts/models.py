@@ -96,6 +96,15 @@ class StudentProfile(models.Model):
     uni = EncryptedCharField(max_length=150)
     location = EncryptedCharField(max_length=150, blank=True, default='')
     readiness_score = models.FloatField(null=True, blank=True)
+    # The job the student is working toward - what readiness_score is measured
+    # against (benchmarks app). Nullable: not every student has picked one yet.
+    target_job = models.ForeignKey(
+        'intelligence.Job',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
     graduated = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
