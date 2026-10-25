@@ -48,13 +48,17 @@ test.describe('signup -> profile setup -> profile -> logout -> login', () => {
     await page.getByRole('button', { name: 'Create Profile' }).click()
 
     await expect(page).toHaveURL(/\/profile$/)
-    await expect(page.getByText('Ada Lovelace')).toBeVisible()
-    await expect(page.getByText('State University')).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Ada Lovelace' }),
+    ).toBeVisible()
+    await expect(page.getByRole('list').getByText('State University')).toBeVisible()
 
     // Reload - confirms the JWT round-tripped through localStorage and the
     // backend still accepts it, not just that client-side routing worked.
     await page.reload()
-    await expect(page.getByText('Ada Lovelace')).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Ada Lovelace' }),
+    ).toBeVisible()
 
     await page.getByRole('banner').getByRole('button', { name: 'Log out' }).click()
     await expect(page).toHaveURL(/\/login$/)
