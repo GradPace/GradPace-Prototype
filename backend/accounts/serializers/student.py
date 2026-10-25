@@ -1,6 +1,19 @@
 from rest_framework import serializers
 
+from intelligence.models import Job
+
 from ..models import StudentProfile
+
+
+def target_job_field():
+    """Writable target_job, set by SOC code (e.g. '15-1252') - the same
+    codes /api/benchmark/roles/ lists. null clears it."""
+    return serializers.SlugRelatedField(
+        slug_field='soc_code',
+        queryset=Job.objects.filter(area='National'),
+        required=False,
+        allow_null=True,
+    )
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):
@@ -11,6 +24,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
     first_name = serializers.CharField(source='user.first_name')
     last_name = serializers.CharField(source='user.last_name')
+    target_job = serializers.SlugRelatedField(slug_field='soc_code', read_only=True)
+    target_job_title = serializers.CharField(
+        source='target_job.title', read_only=True, allow_null=True
+    )
 
     class Meta:
         model = StudentProfile
@@ -21,6 +38,8 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             'major',
             'uni',
             'location',
+            'target_job',
+            'target_job_title',
             'readiness_score',
             'graduated',
             'updated_at',
@@ -33,6 +52,7 @@ class StudentProfileCreateSerializer(serializers.ModelSerializer):
 
     first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
     last_name = serializers.CharField(source='user.last_name', required=False, allow_blank=True)
+    target_job = target_job_field()
 
     class Meta:
         model = StudentProfile
@@ -43,6 +63,7 @@ class StudentProfileCreateSerializer(serializers.ModelSerializer):
             'major',
             'uni',
             'location',
+            'target_job',
             'graduated',
         ]
 
@@ -63,10 +84,11 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
 
     first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
     last_name = serializers.CharField(source='user.last_name', required=False, allow_blank=True)
+    target_job = target_job_field()
 
     class Meta:
         model = StudentProfile
-        fields = ['first_name', 'last_name', 'major', 'uni', 'location', 'graduated']
+        fields = ['first_name', 'last_name', 'major', 'uni', 'location', 'target_job', 'graduated']
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
