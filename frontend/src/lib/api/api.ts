@@ -33,6 +33,26 @@ function messageFromResponseBody(data: unknown): string {
 // apiFetch<{ access: string; refresh: string }> so the returned data
 // is typed instead of `unknown`, without loosening error handling above.
 export async function apiFetch<T>(path: string, body: unknown, auth = false): Promise<T> {
+  return apiSend<T>('POST', path, body, auth)
+}
+
+// PATCH/DELETE always send the access token - they only exist on a
+// logged-in user's own records.
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  return apiSend<T>('PATCH', path, body, true)
+}
+
+// A successful DELETE is 204 No Content, so this resolves to null
+export async function apiDelete(path: string): Promise<null> {
+  return apiSend<null>('DELETE', path, undefined, true)
+}
+
+async function apiSend<T>(
+  method: 'POST' | 'PATCH' | 'DELETE',
+  path: string,
+  body: unknown,
+  auth: boolean,
+): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (auth) {
     const access = localStorage.getItem('access')
@@ -40,9 +60,9 @@ export async function apiFetch<T>(path: string, body: unknown, auth = false): Pr
   }
 
   const res = await fetch(`${API_URL}${path}`, {
-    method: 'POST',
+    method,
     headers,
-    body: JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(body),
   })
 
   // Read as text first, not res.json() directly - a non-JSON response (an
