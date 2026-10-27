@@ -9,8 +9,18 @@ load based on the ``PIPELINE`` env var.
 from datetime import timedelta
 from pathlib import Path
 
+from config.settings import get_secret
+
 # backend/config/settings/base.py -> backend/
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+# llama.cpp's llama-server (intelligence/llm.py). The default is the `llama`
+# Service in k8s (k8s/llama-deployment.yaml) and the `llama` service in
+# docker-compose.dev.yml - both resolve the same name on their own network.
+LLAMA_CPP_BASE_URL = get_secret('LLAMA_CPP_BASE_URL', 'http://llama:8080').rstrip('/')
+# Seconds. CPU inference: a short JSON answer takes a few seconds, but the
+# single slot may already be busy with another request.
+LLAMA_CPP_TIMEOUT = 30
 
 
 # Application definition
@@ -136,14 +146,17 @@ REST_FRAMEWORK = {
     # with ?limit=/?offset= to page through.
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 50,
-    # Per client IP, on the public auth endpoints only (accounts/views.py,
+    # Per client IP, on the public auth endpoints (accounts/views.py,
     # accounts.throttling.AuthRateThrottle). Login/register/reset all hash a
     # password or send an email - cheap to request, expensive to serve.
+    # `llm` is per user, on views that call the model (intelligence/views.py)
+    # - it answers one request at a time on CPU.
     'DEFAULT_THROTTLE_RATES': {
         'login': '10/min',
         'register': '5/min',
         'refresh': '30/min',
         'password_reset': '5/hour',
+        'llm': '10/min',
     },
 }
 
