@@ -26,6 +26,10 @@ up-dev: ## Start dev compose
 	$(DEV_COMPOSE) up -d && \
 	docker image prune -af
 
+up-dev-llm: ## Start dev compose plus the gemma-4 E2B llama-server (first start downloads ~3.3 GB)
+	$(DEV_COMPOSE) --profile llm up -d && \
+	docker image prune -af
+
 deploy-frontend: ## Roll the frontend deployment to TAG=<tag> (defaults to latest) and wait for it to finish
 	kubectl set image deployment/frontend frontend=$(REGISTRY_IMAGE)/frontend:$(TAG) -n $(NAMESPACE)
 	kubectl rollout status deployment/frontend -n $(NAMESPACE)
@@ -45,7 +49,7 @@ down: ## Delete every resource in k8s/ from the cluster
 	kubectl delete -f k8s/
 
 down-dev: ## Stop and remove services
-	$(DEV_COMPOSE) down
+	$(DEV_COMPOSE) --profile llm down
 
 restart: ## Force a rolling restart of every deployment/statefulset in the stack
 	kubectl rollout restart deployment/backend deployment/frontend deployment/mail statefulset/db -n $(NAMESPACE)
