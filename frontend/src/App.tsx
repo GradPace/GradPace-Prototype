@@ -6,6 +6,8 @@ import ProfileSetupPage from "./pages/ProfileSetupPage/ProfileSetupPage";
 import ProfilePage from "./pages/ProfilePage/ProfilePage";
 import HowItWorksPage from "./pages/HowItWorksPage/HowItWorksPage";
 import FeaturesPage from "./pages/FeaturesPage/FeaturesPage";
+import Feedback from "./pages/Feedback/Feedback";
+
 {
   /* Routes is what nests <Route>s
    * Route maps URLs to components
@@ -21,6 +23,7 @@ function App() {
       <Route path="/profile" element={<ProfilePage />} />
       <Route path="/how-it-works" element={<HowItWorksPage />} />
       <Route path="/features" element={<FeaturesPage />} />
+      <Route path="/feedback" element={<Feedback />} />
     </Routes>
   );
 }
