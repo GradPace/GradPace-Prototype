@@ -12,7 +12,10 @@ class AuthRateThrottle(ScopedRateThrottle):
     gradpace-api is proxied through Cloudflare, so REMOTE_ADDR is only
     Traefik - DRF's default would put every anonymous client in one shared
     bucket. CF-Connecting-IP is the real client, same as accounts/turnstile.py
-    uses."""
+    uses.
+
+    On an authenticated endpoint (the transcript upload) ScopedRateThrottle
+    keys on the user instead, so get_ident() isn't used there."""
 
     def get_ident(self, request):
         return request.META.get('HTTP_CF_CONNECTING_IP') or super().get_ident(request)

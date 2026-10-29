@@ -2,12 +2,14 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMultiAlternatives
+from django.db import transaction
 from django.http import Http404
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
@@ -31,9 +33,12 @@ from .serializers import (
     StudentProfileUpdateSerializer,
     TakenClassSerializer,
     TokenPairSerializer,
+    TranscriptResultSerializer,
+    TranscriptUploadSerializer,
     UserSerializer,
 )
 from .throttling import AuthRateThrottle
+from .transcript import TranscriptError, parse_transcript
 
 User = get_user_model()
 
@@ -275,6 +280,105 @@ class TakenClassDetailView(StudentOwnedMixin, generics.RetrieveUpdateDestroyAPIV
 
     serializer_class = TakenClassSerializer
     queryset = TakenClass.objects.all()
+
+
+def _skipped(course, reason):
+    """A parsed course -> a TranscriptResultSerializer `skipped` entry. Same
+    shape as accounts/transcript.py's own skipped rows."""
+    return {
+        'course_code': course['course_code'],
+        'course_name': course['course_name'],
+        'semester': course['semester'],
+        'year': course['year'],
+        'reason': reason,
+    }
+
+
+class TranscriptUploadView(StudentOwnedMixin, APIView):
+    """Authenticated - imports the caller's ODU unofficial transcript PDF as
+    TakenClass rows (accounts/transcript.py). The PDF is parsed in memory and
+    never stored.
+
+    Safe to upload again: a class already on the profile for the same term
+    (course_code + semester + year) is skipped, not duplicated. Every row is
+    saved or none are."""
+
+    # Multipart for this view only - JSON is the API-wide default (see
+    # DEFAULT_PARSER_CLASSES in config/settings/base.py).
+    parser_classes = [MultiPartParser]
+    # Keyed on the user here, since the caller is authenticated. Parsing a
+    # PDF is CPU-heavy.
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'transcript'
+    queryset = TakenClass.objects.all()
+
+    @extend_schema(
+        # Spelled out rather than TranscriptUploadSerializer: drf-spectacular
+        # documents a FileField as a URL string, so Swagger UI would show a
+        # text box instead of a file picker.
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'file': {'type': 'string', 'format': 'binary'},
+                    'dry_run': {'type': 'boolean', 'default': False},
+                },
+                'required': ['file'],
+            }
+        },
+        responses={201: TranscriptResultSerializer, 200: TranscriptResultSerializer},
+    )
+    def post(self, request):
+        """Upload `file` (the PDF). 201 with the saved classes, or 200 with
+        what would be saved when `dry_run` is true. 400 if the file isn't a
+        readable transcript."""
+        profile = self.get_student_profile()
+        upload = TranscriptUploadSerializer(data=request.data)
+        upload.is_valid(raise_exception=True)
+
+        try:
+            parsed = parse_transcript(upload.validated_data['file'])
+        except TranscriptError as exc:
+            return Response({'file': [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        on_profile = set(self.get_queryset().values_list('course_code', 'semester', 'year'))
+        in_upload = set()
+        skipped = list(parsed.skipped)
+        rows = []
+        for course in parsed.courses:
+            key = (course['course_code'], course['semester'], course['year'])
+            if key in on_profile:
+                skipped.append(_skipped(course, 'Already on your profile.'))
+            elif key in in_upload:
+                # e.g. a class listed both as graded and as in progress.
+                skipped.append(_skipped(course, 'Listed twice for the same term.'))
+            else:
+                in_upload.add(key)
+                rows.append(TakenClassSerializer(data=course))
+
+        valid = []
+        for row in rows:
+            if row.is_valid():
+                valid.append(row)
+            else:
+                errors = ' '.join(str(error) for field in row.errors.values() for error in field)
+                skipped.append(_skipped(row.initial_data, errors))
+
+        if upload.validated_data['dry_run']:
+            courses = [row.initial_data for row in valid]
+            response_status = status.HTTP_200_OK
+        else:
+            with transaction.atomic():
+                created = TakenClass.objects.bulk_create(
+                    TakenClass(student=profile, **row.validated_data) for row in valid
+                )
+            courses = TakenClassSerializer(created, many=True).data
+            response_status = status.HTTP_201_CREATED
+
+        return Response(
+            {'courses': courses, 'skipped': skipped, 'unparsed': parsed.unparsed},
+            status=response_status,
+        )
 
 
 class CertificateListView(StudentOwnedMixin, generics.ListCreateAPIView):

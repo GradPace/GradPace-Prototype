@@ -125,10 +125,14 @@ in `dev.py`/`test.py`; prod reads it from the `backend-salt-key` Secret (see
 - **Rotating `SECRET_KEY`:** put the old value in `SECRET_KEY_FALLBACKS`
   (comma-separated, read by `prod.py`) first - without it nothing decrypts.
 
-**Uploaded files** aren't covered. There are no uploads yet. When PDF
-ingestion is ready, encrypt the bytes with `cryptography.fernet.Fernet` in a
-small custom `Storage` subclass. Don't use `django-encrypted-fields-and-files`
-for it: it installs a module also named `encrypted_fields`.
+**Uploaded files** aren't stored. The one upload so far, the transcript
+(`POST /api/auth/profile/transcript/`, `accounts/transcript.py`), is parsed in
+memory and only the resulting `TakenClass` rows are saved, so their `grade`
+is encrypted like any other. If an upload ever does need keeping, encrypt the
+bytes with `cryptography.fernet.Fernet` in a small custom `Storage` subclass.
+backend pods have no persistent volume, so it can't be the local filesystem
+either. Don't use `django-encrypted-fields-and-files` for it: it installs a
+module also named `encrypted_fields`.
 
 ## Deploying
 
