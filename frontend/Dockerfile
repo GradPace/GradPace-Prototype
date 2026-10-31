@@ -46,7 +46,7 @@ RUN pnpm build
 #
 # The "unprivileged" image runs as a non-root user out of the box (uid 101)
 # and listens on 8080 instead of 80, since binding <1024 needs root.
-FROM nginxinc/nginx-unprivileged:1.29-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf

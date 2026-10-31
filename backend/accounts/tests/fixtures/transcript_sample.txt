@@ -1,0 +1,70 @@
+Old Dominion University
+Unofficial Academic Transcript
+This is not an official transcript. Courses which are in progress may also be included on this transcript.
+Transcript Data
+STUDENT INFORMATION
+Name
+JANE Q. STUDENT
+Current Program
+Major and Department
+Computer Science, Computer Science
+TRANSFER CREDIT ACCEPTED BY INSTITUTION
+HS: ADVANCED PLACEMENT
+Subject Course Title Grade Credit Hours Quality Points R
+HIST 101H WORLD CIVILIZATIONS AP 3.000 0.00 I
+CS 1ELE ELECTIVE AP 3.000 0.00
+Attempt Hours Passed Hours Earned Hours GPA Hours Quality Points GPA
+Current Term 6.000 0.000 6.000 0.000 0.00 0.00
+INSTITUTION CREDIT
+Term: Fall 2024
+Academic Standing
+Good Academic Standing
+Subject Course Level Title Grade Credit Quality R
+Hours Points
+CS 150 UG PROBLEM SOLVING AND B+ 4.000 13.20
+PROGRAMMING I
+MATH 163 UG PRECALCULUS II C 3.000 6.00
+CS 120G UG INFORMATION LITERACY P 1.000 0.00
+Term Totals Attempt Hours Passed Hours Earned Hours GPA Hours Quality Points GPA
+(Undergraduate)
+Current Term 8.000 8.000 8.000 7.000 19.20 2.74
+Cumulative 8.000 8.000 8.000 7.000 19.20 2.74
+Term: Spring 2025
+Academic Standing
+Good Academic Standing
+Additional Standing
+Dean's List
+Subject Course Level Title Grade Credit Quality R
+Hours Points
+MATH 163 UG PRECALCULUS II A- 3.000 11.10
+CHEM 121N UG FOUNDATIONS OF CHEMISTRY A 1.000 4.00
+--- page break ---
+I LAB
+PHYS 111N UG INTRO PHYSICS A 4.000 16.00
+Term Totals Attempt Hours Passed Hours Earned Hours GPA Hours Quality Points GPA
+(Undergraduate)
+Current Term 8.000 8.000 8.000 8.000 31.10 3.89
+Cumulative 16.000 16.000 16.000 15.000 50.30 3.35
+Term: Fall 2025
+Subject Course Level Title Grade Credit Quality R
+Hours Points
+CS 300T UG COMPUTERS IN SOCIETY A 3.000 12.00
+Term Totals Attempt Hours Passed Hours Earned Hours GPA Hours Quality Points GPA
+(Undergraduate)
+Current Term 3.000 3.000 3.000 3.000 12.00 4.00
+Cumulative 19.000 19.000 19.000 18.000 62.30 3.46
+TRANSCRIPT TOTALS
+Transcript Totals Attempt Hours Passed Hours Earned Hours GPA Hours Quality Points GPA
+(Undergraduate)
+Total Institution 19.000 19.000 19.000 18.000 62.30 3.46
+Total Transfer 6.000 0.000 6.000 0.000 0.00 0.00
+Overall 25.000 19.000 25.000 18.00 62.30 3.46
+COURSE(S) IN PROGRESS
+Term: Fall 2025
+Subject Course Level Title Credit Hours
+CS 300T UG COMPUTERS IN SOCIETY 3.000
+CS 432 UG WEB SCIENCE 3.000
+Term: Spring 2026
+Subject Course Level Title Credit Hours
+CS 418 UG WEB PROGRAMMING AND 3.000
+DESIGN

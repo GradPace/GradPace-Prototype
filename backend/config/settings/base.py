@@ -146,10 +146,11 @@ REST_FRAMEWORK = {
     # with ?limit=/?offset= to page through.
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
     'PAGE_SIZE': 50,
-    # Per client IP, on the public auth endpoints (accounts/views.py,
+    # Per client IP on the public auth endpoints (accounts/views.py,
     # accounts.throttling.AuthRateThrottle). Login/register/reset all hash a
     # password or send an email - cheap to request, expensive to serve.
-    # `llm` is per user, on views that call the model (intelligence/views.py)
+    # 'transcript' is per user: parsing an uploaded PDF is the same story.
+    # 'llm' is per user, on views that call the model (intelligence/views.py)
     # - it answers one request at a time on CPU.
     'DEFAULT_THROTTLE_RATES': {
         'login': '10/min',
@@ -157,6 +158,7 @@ REST_FRAMEWORK = {
         'refresh': '30/min',
         'password_reset': '5/hour',
         'llm': '10/min',
+        'transcript': '20/hour',
     },
 }
 
@@ -166,7 +168,7 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     'TITLE': 'GradPace API',
     'DESCRIPTION': 'Backend API for GradPace - Team Copper.',
-    'VERSION': '0.5.0',
+    'VERSION': '0.9.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
 

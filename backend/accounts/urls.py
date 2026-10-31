@@ -20,6 +20,7 @@ urlpatterns = [
     path('profile/', views.ProfileView.as_view(), name='profile'),
     path('profile/classes/', views.TakenClassListView.as_view(), name='class-list'),
     path('profile/classes/<uuid:pk>/', views.TakenClassDetailView.as_view(), name='class-detail'),
+    path('profile/transcript/', views.TranscriptUploadView.as_view(), name='transcript-upload'),
     path('profile/certificates/', views.CertificateListView.as_view(), name='certificate-list'),
     path(
         'profile/certificates/<uuid:pk>/',
