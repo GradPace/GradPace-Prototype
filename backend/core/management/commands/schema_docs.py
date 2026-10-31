@@ -88,7 +88,7 @@ class Command(BaseCommand):
         if START not in text or END not in text:
             raise CommandError(f'{path} is missing the schema markers.')
         table, diagram = build()
-        block = f'{START}\n\n### Foreign keys\n\n{table}\n\n### Diagram\n\n{diagram}\n\n{END}'
+        block = f'{START}\n\n### Diagram\n\n{diagram}\n\n### Foreign keys\n\n{table}\n\n{END}'
         new = re.sub(re.escape(START) + '.*?' + re.escape(END), lambda _: block, text, flags=re.S)
         if check:
             if new != text:
