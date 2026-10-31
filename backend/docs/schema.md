@@ -1,32 +1,168 @@
 # Database schema
 
-Generated straight from `accounts/models.py` via django-extensions'
-`graph_models` (Graphviz) - not hand-maintained, so it can't drift from the
-actual models.
+## Relationships
+
+Generated from the models by `make schema-docs`. Read each FK row as
+"**`From.field`** points at **`To`**". In the diagram, the line is labeled
+with the FK field and the table on the `o{` ("many") end holds the FK column.
+
+Crow's-foot symbols: `||` exactly one, `o|` zero or one, `o{` zero or many.
+`PK` primary key, `FK` foreign key, `UK` unique.
+
+<!-- schema:start -->
+
+### Foreign keys
+
+| From (holds the FK column) | Field | Points at | Type | If the target is deleted |
+|---|---|---|---|---|
+| `AdminProfile` | `user` | `CustomUser` | one-to-one | row deleted |
+| `AlumniProfile` | `user` | `CustomUser` | one-to-one | row deleted |
+| `Certificate` | `student` | `StudentProfile` | many Certificate to one StudentProfile | row deleted |
+| `CustomUser` | `role` | `Role` | many CustomUser to one Role (optional) | FK set to NULL |
+| `JobPosting` | `job` | `Job` | many JobPosting to one Job | row deleted |
+| `JobPosting` | `skills` | `JobSkill` | many-to-many | link row removed |
+| `JobSkill` | `job` | `Job` | many JobSkill to one Job | row deleted |
+| `Skill` | `student` | `StudentProfile` | many Skill to one StudentProfile | row deleted |
+| `StudentProfile` | `target_job` | `Job` | many StudentProfile to one Job (optional) | FK set to NULL |
+| `StudentProfile` | `user` | `CustomUser` | one-to-one | row deleted |
+| `TakenClass` | `student` | `StudentProfile` | many TakenClass to one StudentProfile | row deleted |
+
+### Diagram
+
+```mermaid
+erDiagram
+    CustomUser ||--o| AdminProfile : "AdminProfile.user"
+    CustomUser ||--o| AlumniProfile : "AlumniProfile.user"
+    CustomUser ||--o| StudentProfile : "StudentProfile.user"
+    Job |o--o{ StudentProfile : "StudentProfile.target_job"
+    Job ||--o{ JobPosting : "JobPosting.job"
+    Job ||--o{ JobSkill : "JobSkill.job"
+    JobPosting }o--o{ JobSkill : "JobPosting.skills"
+    Role |o--o{ CustomUser : "CustomUser.role"
+    StudentProfile ||--o{ Certificate : "Certificate.student"
+    StudentProfile ||--o{ Skill : "Skill.student"
+    StudentProfile ||--o{ TakenClass : "TakenClass.student"
+
+    Role {
+        BigAutoField id PK
+        CharField role_name UK
+        CharField description
+    }
+    CustomUser {
+        CharField password
+        DateTimeField last_login
+        BooleanField is_superuser
+        UUIDField id PK
+        CharField email UK
+        TextField first_name
+        TextField last_name
+        BigAutoField role_id FK
+        DateTimeField created_at
+        BooleanField is_active
+        BooleanField is_staff
+    }
+    StudentProfile {
+        UUIDField id PK
+        UUIDField user_id FK, UK
+        CharField student_id UK
+        TextField major
+        TextField uni
+        TextField location
+        FloatField readiness_score
+        UUIDField target_job_id FK
+        BooleanField graduated
+        DateTimeField updated_at
+    }
+    AlumniProfile {
+        UUIDField id PK
+        UUIDField user_id FK, UK
+        DateTimeField updated_at
+    }
+    AdminProfile {
+        UUIDField id PK
+        UUIDField user_id FK, UK
+        DateTimeField updated_at
+    }
+    TakenClass {
+        UUIDField id PK
+        UUIDField student_id FK
+        CharField course_code
+        CharField course_name
+        CharField semester
+        PositiveSmallIntegerField year
+        TextField grade
+        PositiveSmallIntegerField credits
+        DateTimeField created_at
+        DateTimeField updated_at
+    }
+    Certificate {
+        UUIDField id PK
+        UUIDField student_id FK
+        CharField name
+        CharField issuing_organization
+        DateField date_earned
+        TextField credential_url
+        DateTimeField created_at
+        DateTimeField updated_at
+    }
+    Skill {
+        UUIDField id PK
+        UUIDField student_id FK
+        CharField name
+        CharField proficiency_level
+        DateTimeField created_at
+        DateTimeField updated_at
+    }
+    Job {
+        UUIDField id PK
+        CharField title
+        CharField soc_code
+        TextField description
+        CharField area
+        PositiveIntegerField median_annual_wage
+        PositiveIntegerField employment
+        CharField source
+        DateTimeField created_at
+        DateTimeField updated_at
+    }
+    JobSkill {
+        UUIDField id PK
+        UUIDField job_id FK
+        CharField name
+        CharField skill_type
+        FloatField importance
+        DateTimeField created_at
+        DateTimeField updated_at
+    }
+    JobPosting {
+        UUIDField id PK
+        UUIDField job_id FK
+        CharField title
+        CharField company
+        CharField location
+        CharField seniority
+        PositiveIntegerField salary_min
+        PositiveIntegerField salary_max
+        TextField description
+        CharField source
+        DateTimeField created_at
+        DateTimeField updated_at
+    }
+```
+
+<!-- schema:end -->
+
+## Full auto-generated diagram
+
+A Graphviz diagram of the `accounts` app via django-extensions'
+`graph_models`. It is denser than the diagram above and includes Django's built-in `Group`,
+`Permission`, `AbstractBaseUser` and `PermissionsMixin` (pulled in because
+`CustomUser` inherits from them; inheritance arrows are not database
+relationships).
 
 ![Accounts app ER diagram](schema.svg)
 
-## How to read it
-
-* **Green header bar** - a model (a database table). Rows below it are that
-  model's fields.
-* **Bold field name** (e.g. `id`) - the primary key.
-* **A dot on a line** - a real database relationship (a foreign key). The
-  text on the line is the field that creates it, e.g. `role (customuser)`
-  means `CustomUser.role`.
-  * One dot = `ForeignKey` (points at one row in the other table).
-  * A dot on *both* ends = `ManyToManyField`.
-* **Open/hollow arrowhead labeled "abstract inheritance"** - not a database
-  relationship at all. It just means the model's Python class inherits from
-  that one (e.g. `CustomUser` extends Django's `AbstractBaseUser`). Nothing
-  is stored there.
-* `Group`, `Permission`, `AbstractBaseUser`, `PermissionsMixin` are Django's
-  own built-in classes, pulled in automatically because `CustomUser` inherits
-  from them - not something GradPace defined.
-
-## Regenerating
-
-After changing `accounts/models.py`, run:
+To regenerate the SVG after changing `accounts/models.py`:
 
 ```sh
 make schema-diagram
@@ -35,3 +171,11 @@ make schema-diagram
 This builds `backend/Dockerfile.dev` (the same dev image `docker-compose.dev.yml`
 uses, plus Graphviz) and writes `backend/docs/schema.svg` in place. Commit the
 updated SVG alongside your model changes.
+
+To regenerate the FK table and Mermaid diagram above:
+
+```sh
+make schema-docs
+```
+
+`uv run manage.py schema_docs --check` fails if they are out of date.
