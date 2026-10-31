@@ -14,6 +14,7 @@ from .student import (
     StudentProfileSerializer,
     StudentProfileUpdateSerializer,
 )
+from .transcript import TranscriptResultSerializer, TranscriptUploadSerializer
 
 __all__ = [
     'CertificateSerializer',
@@ -29,5 +30,7 @@ __all__ = [
     'StudentProfileUpdateSerializer',
     'TakenClassSerializer',
     'TokenPairSerializer',
+    'TranscriptResultSerializer',
+    'TranscriptUploadSerializer',
     'UserSerializer',
 ]
