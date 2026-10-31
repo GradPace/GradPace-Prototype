@@ -1,4 +1,4 @@
-.PHONY: help deploy deploy-backend deploy-frontend rollback-backend rollback-frontend up down restart logs logs-backend logs-frontend logs-db logs-mail check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend-unit test-frontend test-e2e test docs schema-diagram schema-docs clean
+.PHONY: help deploy deploy-backend deploy-frontend rollback-backend rollback-frontend up down restart logs logs-backend logs-frontend logs-db logs-mail check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend-unit test-frontend test-e2e test docs schema-docs clean
 
 # Prod runs on k3s (see k8s/) - kubectl against that cluster, not Docker
 # Swarm. Dev is still a single host with plain `docker compose`.
@@ -124,10 +124,6 @@ test: test-backend test-frontend ## Run everything: backend + frontend checks (n
 
 docs: ## Build the Sphinx docs (backend/docs/_build/html)
 	cd backend && uv run --group docs sphinx-build -b html docs docs/_build/html
-
-schema-diagram: ## Regenerate the accounts app ER diagram (backend/docs/schema.svg)
-	docker compose -f docker-compose.dev.yml run --rm backend sh -c \
-		"uv sync && uv run manage.py graph_models accounts --pydot -o docs/schema.svg"
 
 schema-docs: ## Regenerate the FK table + Mermaid diagram in backend/docs/schema.md
 	cd backend && uv run manage.py schema_docs

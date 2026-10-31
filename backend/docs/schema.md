@@ -152,27 +152,9 @@ erDiagram
 
 <!-- schema:end -->
 
-## Full auto-generated diagram
+## Regenerating
 
-A Graphviz diagram of the `accounts` app via django-extensions'
-`graph_models`. It is denser than the diagram above and includes Django's built-in `Group`,
-`Permission`, `AbstractBaseUser` and `PermissionsMixin` (pulled in because
-`CustomUser` inherits from them; inheritance arrows are not database
-relationships).
-
-![Accounts app ER diagram](schema.svg)
-
-To regenerate the SVG after changing `accounts/models.py`:
-
-```sh
-make schema-diagram
-```
-
-This builds `backend/Dockerfile.dev` (the same dev image `docker-compose.dev.yml`
-uses, plus Graphviz) and writes `backend/docs/schema.svg` in place. Commit the
-updated SVG alongside your model changes.
-
-To regenerate the FK table and Mermaid diagram above:
+After changing any model, run:
 
 ```sh
 make schema-docs
