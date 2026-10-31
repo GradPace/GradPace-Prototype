@@ -2,15 +2,12 @@ name: gradpace-dev
 
 services:
   # Backend - Django dev server with live reload.
-  # Builds from Dockerfile.dev (not backend/Dockerfile, which is the lean prod
-  # build with only the `prod` dependency group) - just the same uv image plus
-  # graphviz, for `manage.py graph_models` (see the Makefile's schema-diagram
-  # target). PIPELINE is unset, so config/settings/__init__.py loads dev.py:
-  # sqlite, DEBUG=True, console email.
+  # Runs the plain uv image (not backend/Dockerfile, which is the lean prod
+  # build with only the `prod` dependency group); dependencies install at
+  # container start since ./backend is bind-mounted. PIPELINE is unset, so
+  # config/settings/__init__.py loads dev.py: sqlite, DEBUG=True, console email.
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
+    image: ghcr.io/astral-sh/uv:python3.14-alpine
     working_dir: /app
     command: >
       sh -c "uv sync &&

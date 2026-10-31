@@ -1,7 +1,6 @@
 # Throwaway e2e dev backend - same image/command docker-compose.dev.yml's
-# backend service used, just as a pod instead of a compose service (see
-# backend/Dockerfile.dev's base image; graphviz isn't needed here since e2e
-# never calls `manage.py graph_models`). `make test-e2e` applies this with
+# backend service used, just as a pod instead of a compose service.
+# `make test-e2e` applies this with
 # __CHECKOUT_PATH__ substituted for the actual checkout dir (sed, since
 # hostPath can't reference an env var directly) and deletes the whole
 # gradpace-e2e namespace afterward.
