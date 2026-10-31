@@ -59,7 +59,7 @@ make ruff-lint              # lint
 make ruff-format            # reformat
 make pytest                  # run the test suite
 make test-backend            # check + lint + format-check + pytest, same as CI
-make schema-diagram           # regenerate docs/schema.svg
+make schema-docs             # regenerate docs/schema.md FK table + diagram
 ```
 
 (all run from the repo root - see the root `Makefile`)
