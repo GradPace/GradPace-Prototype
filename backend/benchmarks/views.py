@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from accounts.models import StudentProfile
 from intelligence.models import Job
 
+from .relevance import rank_resources_by_relevance
 from .algorithms import calculate_benchmark_score
 from .best_fit import best_fit_jobs
 from .catalog import label_for, skill_catalog
@@ -198,3 +199,63 @@ class BestFitJobsView(APIView):
         except StudentProfile.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(best_fit_jobs(profile))
+
+class GapRelevanceView(APIView):
+    """Scores and ranks learning resources against the logged-in 
+    student's skill gap profile for a target job."""
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                'role',
+                str,
+                required=False,
+                description="SOC code, e.g. 15-1252. Defaults to the profile's target_job.",
+            )
+        ]
+    )
+    def get(self, request):
+        try:
+            profile = request.user.student_profile
+        except StudentProfile.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        soc_code = request.query_params.get('role')
+        if soc_code is not None:
+            job = get_job(soc_code)
+            if job is None:
+                return Response(
+                    {'role': [f'Unknown role {soc_code!r}.']}, status=status.HTTP_400_BAD_REQUEST
+                )
+        elif profile.target_job is not None:
+            job = profile.target_job
+        else:
+            return Response(
+                {'role': ['No target job saved on the profile - pass ?role= or set one.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        benchmark = build_job_benchmark(job)
+
+        # Build resources dynamically from the Job's JobSkill set
+        # Each resource targets a benchmark skill associated with this Job
+        job_skills = job.skills.all()
+        catalog_resources = [
+            {
+                'id': str(skill.id),
+                'title': f'{skill.name} Practice & Mastery Module',
+                'skills': [skill.name],
+            }
+            for skill in job_skills
+        ]
+
+        ranked_catalog = rank_resources_by_relevance(
+            resources=catalog_resources,
+            student_skills={s.name: s.proficiency_level for s in profile.skills.all()},
+            benchmark_skills=benchmark.skills,
+        )
+
+        return Response({
+            'role': {'soc_code': job.soc_code, 'title': job.title},
+            'recommendations': ranked_catalog,
+        })
