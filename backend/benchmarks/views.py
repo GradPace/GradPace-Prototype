@@ -200,8 +200,9 @@ class BestFitJobsView(APIView):
             return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(best_fit_jobs(profile))
 
+
 class GapRelevanceView(APIView):
-    """Scores and ranks learning resources against the logged-in 
+    """Scores and ranks learning resources against the logged-in
     student's skill gap profile for a target job."""
 
     @extend_schema(
@@ -255,7 +256,9 @@ class GapRelevanceView(APIView):
             benchmark_skills=benchmark.skills,
         )
 
-        return Response({
-            'role': {'soc_code': job.soc_code, 'title': job.title},
-            'recommendations': ranked_catalog,
-        })
+        return Response(
+            {
+                'role': {'soc_code': job.soc_code, 'title': job.title},
+                'recommendations': ranked_catalog,
+            }
+        )
