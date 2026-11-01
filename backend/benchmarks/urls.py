@@ -13,7 +13,6 @@ urlpatterns = [
     path('roles/<str:soc_code>/', views.JobBenchmarkView.as_view(), name='job_benchmark'),
     path('skills/', views.SkillCatalogView.as_view(), name='skill_catalog'),
     path('sample/', views.SampleBenchmarkView.as_view(), name='sample_benchmark'),
-    
     # Gap Relevance endpoint
-     path('gap-relevance/', GapRelevanceView.as_view(), name='gap_relevance'),
+    path('gap-relevance/', GapRelevanceView.as_view(), name='gap_relevance'),
 ]
