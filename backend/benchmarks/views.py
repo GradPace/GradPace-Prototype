@@ -201,7 +201,7 @@ class BestFitJobsView(APIView):
         return Response(best_fit_jobs(profile))
 
 class GapRelevanceView(APIView):
-    """Scores and ranks catalog or learning resources against the logged-in 
+    """Scores and ranks learning resources against the logged-in 
     student's skill gap profile for a target job."""
 
     @extend_schema(
@@ -237,15 +237,20 @@ class GapRelevanceView(APIView):
 
         benchmark = build_job_benchmark(job)
 
-        # Sample catalog list (Replace with a database query if you have a catalog model)
-        sample_catalog = [
-            {'id': 1, 'title': 'SQL Mastery & Queries', 'skills': ['Structured query language SQL']},
-            {'id': 2, 'title': 'Python for Data Analysis', 'skills': ['Python']},
-            {'id': 3, 'title': 'Git & Version Control Essentials', 'skills': ['Git']},
+        # Build resources dynamically from the Job's JobSkill set
+        # Each resource targets a benchmark skill associated with this Job
+        job_skills = job.skills.all()
+        catalog_resources = [
+            {
+                'id': str(skill.id),
+                'title': f'{skill.name} Practice & Mastery Module',
+                'skills': [skill.name],
+            }
+            for skill in job_skills
         ]
 
         ranked_catalog = rank_resources_by_relevance(
-            resources=sample_catalog,
+            resources=catalog_resources,
             student_skills={s.name: s.proficiency_level for s in profile.skills.all()},
             benchmark_skills=benchmark.skills,
         )
