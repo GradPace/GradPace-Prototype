@@ -1,9 +1,7 @@
 from django.urls import path
 
-
 from . import views
 from .views import GapRelevanceView
-
 
 urlpatterns = [
     path('calculate/', views.BenchmarkView.as_view(), name='calculate_benchmark'),

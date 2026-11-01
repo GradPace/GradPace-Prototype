@@ -1,4 +1,4 @@
-.PHONY: help deploy deploy-backend deploy-frontend rollback-backend rollback-frontend up down restart logs logs-backend logs-frontend logs-db logs-mail check ruff-lint ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend-unit test-frontend test-e2e test docs schema-diagram clean
+.PHONY: help deploy deploy-backend deploy-frontend rollback-backend rollback-frontend up down restart logs logs-backend logs-frontend logs-db logs-mail check ruff-lint ruff-lint-fix ruff-format ruff-format-check pytest test-backend lint-frontend typecheck-frontend build-frontend test-frontend-unit test-frontend test-e2e test docs schema-diagram clean
 
 # Prod runs on k3s (see k8s/) - kubectl against that cluster, not Docker
 # Swarm. Dev is still a single host with plain `docker compose`.
@@ -69,6 +69,9 @@ check: ## Run Django's system check
 
 ruff-lint: ## Run ruff's linter over the backend
 	cd backend && uv run ruff check .
+
+ruff-lint-fix: ## Auto-fix ruff lint errors in the backend (import sorting, unused imports, ...)
+	cd backend && uv run ruff check --fix .
 
 ruff-format: ## Reformat the backend with ruff
 	cd backend && uv run ruff format .
