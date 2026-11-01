@@ -7,7 +7,7 @@ Gaps are derived from `scoring.py` (readiness output) or calculated directly fro
 unearned skill weights.
 """
 
-from .scoring import student_levels, level_for, proficiency_credit, room_to_grow
+from .scoring import level_for, proficiency_credit, student_levels
 
 
 def calculate_student_gaps(student_skills, benchmark_skills):

@@ -9,11 +9,11 @@ from rest_framework.views import APIView
 from accounts.models import StudentProfile
 from intelligence.models import Job
 
-from .relevance import rank_resources_by_relevance
 from .algorithms import calculate_benchmark_score
 from .best_fit import best_fit_jobs
 from .catalog import label_for, skill_catalog
 from .job_benchmark import build_job_benchmark, get_job
+from .relevance import rank_resources_by_relevance
 from .scoring import score_student
 from .serializers import (
     BenchmarkRequestSerializer,

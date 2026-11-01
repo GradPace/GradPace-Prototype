@@ -1,6 +1,5 @@
 # backend/benchmarks/tests/test_relevance.py
 
-import pytest
 from benchmarks.job_benchmark import BenchmarkSkill
 from benchmarks.relevance import calculate_student_gaps, score_resource_relevance
 
