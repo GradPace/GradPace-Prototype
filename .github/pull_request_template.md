@@ -25,6 +25,7 @@ Closes #
 
 **Backend (Django)**
 - [ ] Migrations included, if models changed (`manage.py makemigrations`)
+- [ ] Schema docs regenerated, if models changed (`make schema-docs`; updates `backend/docs/schema.md`)
 
 **Frontend (Node)**
 - [ ] `package.json` / lockfile updated if dependencies changed
