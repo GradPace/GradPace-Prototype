@@ -1,0 +1,39 @@
+name: Rerun Failed Build (runner flake)
+
+on:
+  workflow_run:
+    workflows:
+      - "Build and Push Backend to GHCR"
+      - "Build and Push Frontend to GHCR"
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  rerun:
+    # Only the first attempt: a rerun that fails again is a real problem,
+    # and re-triggering from attempt 2 would loop.
+    runs-on: gradpace-light
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.run_attempt == 1
+    permissions:
+      actions: write
+    steps:
+      - name: Rerun if build-and-push died before running any step
+        # A runner flake (GP-94) shows up as build-and-push failing right
+        # after "Set up job", with every later step never started
+        # (conclusion null). A real Dockerfile or push failure always
+        # gets at least as far as Checkout, so it is left alone.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          started=$(gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID/jobs" \
+            --jq '[.jobs[] | select(.name == "build-and-push" and .conclusion == "failure")
+                   | .steps[] | select(.name != "Set up job" and .conclusion != null)] | length')
+          echo "build-and-push steps that ran after Set up job: ${started:-<no failed build-and-push job>}"
+          if [ "$started" = "0" ]; then
+            gh run rerun "$RUN_ID" --failed --repo "${{ github.repository }}"
+          fi

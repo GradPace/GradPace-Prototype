@@ -64,6 +64,24 @@ themselves as root, but that maps to an unprivileged user on the node.
 Check its cache with `kubectl -n arc-runners exec deploy/buildkitd --
 buildctl du`.
 
+## Runner diagnostics
+
+`gradpace-build` runner pods keep their `_diag` logs on the worker at
+`/var/log/arc-runner-diag/<pod name>`, because the pod and its logs are
+deleted the moment a job ends. Before applying `runner-pools.yaml`, create
+the directory writable for the runner user (uid 1001) on the worker:
+
+```bash
+ssh <worker> 'sudo install -d -m 1777 /var/log/arc-runner-diag'
+```
+
+Nothing prunes it yet; clear old pod directories by hand now and then
+(`find /var/log/arc-runner-diag -mindepth 1 -maxdepth 1 -mtime +14 -exec rm -rf {} +`).
+
+`rerun-failed-build.yml` reruns a build once when `build-and-push` fails
+without running any step past "Set up job" (the GP-94 signature), so that
+failure no longer needs a manual rerun.
+
 ## GitHub App secrets
 
 One GitHub App per org, each installed on all of its repos with
