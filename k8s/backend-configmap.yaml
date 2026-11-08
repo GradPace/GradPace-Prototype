@@ -19,3 +19,4 @@ data:
   EMAIL_HOST_USER: "noreply@gradpace.steyaert.xyz"
   EMAIL_USE_TLS: "0"
   DEFAULT_FROM_EMAIL: "noreply@gradpace.steyaert.xyz"
+  LLAMA_CPP_BASE_URL: "http://llama:8080"

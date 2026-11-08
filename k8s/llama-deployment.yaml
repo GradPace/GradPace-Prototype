@@ -1,0 +1,102 @@
+# CPU inference for the backend's LLM features: llama.cpp's llama-server
+# running gemma-4 E2B (QAT q4_0). Only the backend talks to it, through the
+# `llama` Service (llama-service.yaml, locked down by llama-networkpolicy.yaml).
+#
+# Pinned to steyaert-worker, with requests == limits so the pod gets
+# Guaranteed QoS - CI pods on the same node (priority ci-low) are evicted
+# before this one is. The model file is 3.35 GB, so 5Gi leaves room for the
+# KV cache at a 4096-token context.
+#
+# The GGUF downloads from Hugging Face on first start (~3.3 GB) into the
+# hostPath cache, so later restarts skip it; the startupProbe allows 15 min
+# for that first download.
+#
+# Callers should send `chat_template_kwargs: {enable_thinking: false}` in
+# /v1/chat/completions requests - with thinking on, E2B is ~25x slower.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama
+  namespace: gradpace
+spec:
+  replicas: 1
+  # Recreate, not RollingUpdate: the worker has no room for a second
+  # Guaranteed 2 CPU / 5Gi pod during a rollout.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: llama
+  template:
+    metadata:
+      labels:
+        app: llama
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: steyaert-worker
+      # The `llama` Service would otherwise inject LLAMA_PORT=tcp://... and
+      # friends into the env, next to llama.cpp's own LLAMA_ARG_* settings.
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      containers:
+        - name: llama
+          image: ghcr.io/ggml-org/llama.cpp:server
+          args:
+            - -hf
+            - google/gemma-4-E2B-it-qat-q4_0-gguf:Q4_0
+            # Text only - skips the ~1 GB vision projector.
+            - --no-mmproj
+          env:
+            - name: LLAMA_ARG_HOST
+              value: 0.0.0.0
+            - name: LLAMA_ARG_PORT
+              value: "8080"
+            - name: LLAMA_ARG_CTX_SIZE
+              value: "4096"
+            - name: LLAMA_ARG_N_PARALLEL
+              value: "1"
+            # Match the CPU limit - more threads than cores just gets throttled.
+            - name: LLAMA_ARG_THREADS
+              value: "2"
+            - name: LLAMA_ARG_THREADS_BATCH
+              value: "2"
+            - name: LLAMA_CACHE
+              value: /models-cache
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: "2"
+              memory: 5Gi
+            limits:
+              cpu: "2"
+              memory: 5Gi
+          volumeMounts:
+            - name: models-cache
+              mountPath: /models-cache
+          # /health returns 503 until the model is loaded.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 20
+            # A long generation can hold the single slot; don't kill the pod
+            # for one slow /health answer.
+            timeoutSeconds: 5
+            failureThreshold: 6
+      volumes:
+        - name: models-cache
+          hostPath:
+            path: /srv/llama/cache
+            type: DirectoryOrCreate
