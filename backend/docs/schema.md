@@ -18,6 +18,7 @@ Crow's-foot symbols: `||` exactly one, `o|` zero or one, `o{` zero or many.
 erDiagram
     CustomUser ||--o| AdminProfile : "AdminProfile.user"
     CustomUser ||--o| AlumniProfile : "AlumniProfile.user"
+    CustomUser ||--o| AlumniSurveyResponse : "AlumniSurveyResponse.user"
     CustomUser ||--o| StudentProfile : "StudentProfile.user"
     Job |o--o{ StudentProfile : "StudentProfile.target_job"
     Job ||--o{ JobPosting : "JobPosting.job"
@@ -133,6 +134,18 @@ erDiagram
         DateTimeField created_at
         DateTimeField updated_at
     }
+    AlumniSurveyResponse {
+        UUIDField id PK
+        UUIDField user_id FK, UK
+        CharField current_job_title
+        CharField industry
+        JSONField top_skills
+        PositiveSmallIntegerField preparedness_rating
+        PositiveSmallIntegerField platform_helpfulness_rating
+        JSONField suggested_skills
+        TextField platform_feedback
+        DateTimeField submitted_at
+    }
 ```
 
 ### Foreign keys
@@ -141,6 +154,7 @@ erDiagram
 |---|---|---|---|---|
 | `AdminProfile` | `user` | `CustomUser` | one-to-one | row deleted |
 | `AlumniProfile` | `user` | `CustomUser` | one-to-one | row deleted |
+| `AlumniSurveyResponse` | `user` | `CustomUser` | one-to-one | row deleted |
 | `Certificate` | `student` | `StudentProfile` | many Certificate to one StudentProfile | row deleted |
 | `CustomUser` | `role` | `Role` | many CustomUser to one Role (optional) | FK set to NULL |
 | `JobPosting` | `job` | `Job` | many JobPosting to one Job | row deleted |
