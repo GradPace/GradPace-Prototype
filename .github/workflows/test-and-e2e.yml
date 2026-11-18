@@ -90,7 +90,7 @@ jobs:
   test-backend:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    # A fresh runner pod in the cluster (infra/arc/), deleted after the job,
+    # A fresh runner pod in the cluster (arc/ in the k3s-infra repo), deleted after the job,
     # so caches don't need pruning. PR runs are gated to same-repo branches
     # by the `changes` job above.
     runs-on: gradpace-light

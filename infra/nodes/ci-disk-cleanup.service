@@ -1,6 +1,0 @@
-[Unit]
-Description=Clean up CI caches and leftovers (GradPace)
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/ci-disk-cleanup.sh
