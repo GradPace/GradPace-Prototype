@@ -52,7 +52,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     # The runner pod only hands the build to the shared BuildKit builder
-    # (infra/arc/buildkit.yaml), which keeps the layer cache.
+    # (arc/buildkit.yaml in the k3s-infra repo), which keeps the layer cache.
     runs-on: gradpace-build
     permissions:
       contents: read
