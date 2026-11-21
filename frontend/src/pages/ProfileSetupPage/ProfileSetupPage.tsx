@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { logout } from "../../lib/api/auth";
 import { useEffect, useState, type FormEvent } from "react";
 import { apiGet, apiFetch } from "../../lib/api/api";
+import LocationInput from "../../components/LocationInput/LocationInput";
 
 export default function ProfileSetupPage() {
   const navigate = useNavigate();
@@ -106,11 +107,14 @@ export default function ProfileSetupPage() {
 
               <label className="flex flex-col gap-2 text-sm font-medium text-ink">
                 Location
-                <input
-                  type="text"
+                <LocationInput
                   name="location"
                   className="rounded-md border border-line bg-transparent px-4 py-3 text-base text-ink outline-none focus:border-blue"
                 />
+                <span className="text-xs font-normal text-slate">
+                  Start typing your city and pick it from the list - we use it
+                  to find events near you.
+                </span>
               </label>
 
               <button
