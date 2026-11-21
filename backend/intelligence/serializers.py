@@ -59,3 +59,9 @@ class EventChatSerializer(serializers.Serializer):
 
 class EventChatRequestSerializer(serializers.Serializer):
     question = serializers.CharField(max_length=300, trim_whitespace=True)
+
+
+class PlaceSerializer(serializers.Serializer):
+    label = serializers.CharField(help_text="'Norfolk, VA' - save this as the profile's location.")
+    name = serializers.CharField()
+    state = serializers.CharField()

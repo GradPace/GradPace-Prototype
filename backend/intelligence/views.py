@@ -3,14 +3,14 @@ import re
 from datetime import date
 
 from django.core.cache import cache
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import StudentProfile
 
-from . import event_facts, events
+from . import event_facts, events, places
 from .llm import LLMUnavailable, chat_json
 from .models import EventChat
 from .serializers import (
@@ -19,6 +19,7 @@ from .serializers import (
     EventRecommendationSerializer,
     EventSerializer,
     EventSuggestionsSerializer,
+    PlaceSerializer,
 )
 
 SAMPLE_STUDENT = {
@@ -446,3 +447,32 @@ class EventChatView(APIView):
             'chats_remaining': chats_remaining(user, event_id),
             'max_chats': EventChat.MAX_PER_EVENT,
         }
+
+
+# --- Location autocomplete ------------------------------------------------
+
+PLACE_RESULTS = 8
+MAX_PLACE_QUERY_CHARS = 100
+
+
+class PlaceSearchView(APIView):
+    """Autocomplete for the profile's location: US places whose name starts
+    with ?q= (at least 2 letters), biggest first - at most 8. "nor" and
+    "norfolk, v" both work; after a comma it narrows by state. Save the chosen
+    `label` ("Norfolk, VA") as the location, so the event distance can find
+    the place exactly."""
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('q', str, required=True, description="What's been typed so far.")
+        ],
+        responses={200: PlaceSerializer(many=True)},
+    )
+    def get(self, request):
+        query = request.query_params.get('q', '')[:MAX_PLACE_QUERY_CHARS]
+        return Response(
+            [
+                {'label': place.label, 'name': place.name, 'state': place.state}
+                for place in places.search(query, limit=PLACE_RESULTS)
+            ]
+        )
