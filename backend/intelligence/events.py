@@ -1,14 +1,14 @@
 """Event recommendations (prototype): the mock events in data/events.json,
-narrowed to Hampton Roads, ranked for a student by skill-gap fit, date and
-distance. The ranking is plain code; the LLM only picks among the top few
-candidates and explains the pick (views.py), so it can't invent an event.
+narrowed to REGION_LOCATIONS (Hampton Roads), ranked for a student by
+skill-gap fit, date and distance (places.py gives both ends coordinates). The
+ranking is plain code; the LLM only picks among the top few candidates and
+explains the pick (views.py), so it can't invent an event.
 
     events.json ─> load_events() ─> rank_events(student gaps, location, today)
                    (Hampton Roads)   skill fit 50% / date 25% / distance 25%
 """
 
 import json
-import math
 import re
 from datetime import date
 from functools import lru_cache
@@ -16,25 +16,30 @@ from pathlib import Path
 
 from django.utils.text import slugify
 
+from . import places
+
 EVENTS_PATH = Path(__file__).parent / 'data' / 'events.json'
 
-# The prototype only covers Hampton Roads: event cities not listed here are
-# dropped (Richmond, Petersburg, the NC towns, ...). Approximate city-center
-# (lat, lon) - enough for a "how far is it" score without a geocoding service.
-HAMPTON_ROADS_CITIES = {
-    'norfolk': (36.8508, -76.2859),
-    'virginia beach': (36.8529, -75.9780),
-    'chesapeake': (36.7682, -76.2875),
-    'portsmouth': (36.8354, -76.2983),
-    'suffolk': (36.7282, -76.5836),
-    'hampton': (37.0299, -76.3452),
-    'newport news': (37.0871, -76.4730),
-    'williamsburg': (37.2707, -76.7075),
-    'yorktown': (37.2388, -76.5097),
-    'smithfield': (36.9824, -76.6310),
-    'gloucester': (37.4135, -76.5246),
-    'franklin': (36.6776, -76.9224),
-}
+# The prototype only shows Hampton Roads events: any event whose `location`
+# isn't listed here is dropped. This is a filter on the event's own text,
+# separate from distance - to widen the region, add locations (or swap this
+# for a radius around a point).
+REGION_LOCATIONS = frozenset(
+    {
+        'Norfolk, VA',
+        'Virginia Beach, VA',
+        'Chesapeake, VA',
+        'Portsmouth, VA',
+        'Suffolk, VA',
+        'Hampton, VA',
+        'Newport News, VA',
+        'Williamsburg, VA',
+        'Yorktown, VA',
+        'Smithfield, VA',
+        'Gloucester, VA',
+        'Franklin, VA',
+    }
+)
 
 WEIGHT_SKILLS = 0.50
 WEIGHT_DATE = 0.25
@@ -43,7 +48,7 @@ WEIGHT_DISTANCE = 0.25
 # Distance and date scores fall off linearly to 0 at these limits.
 FAR_MILES = 60.0
 FAR_DAYS = 90
-# Used when the student's location isn't a known Hampton Roads city.
+# Used when the student's location isn't a place we can find (places.lookup).
 NEUTRAL_DISTANCE_SCORE = 0.5
 
 _STOPWORDS = frozenset(
@@ -88,16 +93,24 @@ def _all_events():
         raw = json.load(events_file)
     events = []
     for event in raw:
-        city = _city_of(event['location'])
-        if city not in HAMPTON_ROADS_CITIES:
+        place = places.lookup(event['location'])
+        if event['location'] not in REGION_LOCATIONS or place is None:
             continue
-        events.append({**event, 'id': slugify(event['title']), 'city': city})
+        events.append(
+            {
+                **event,
+                'id': slugify(event['title']),
+                'city': _city_of(event['location']),
+                'place': place,
+            }
+        )
     return events
 
 
 def load_events():
-    """Every Hampton Roads event, in file (date) order. Each is the JSON
-    object plus `id` (slug of the title) and `city` (lowercase)."""
+    """Every event in the region, in file (date) order. Each is the JSON
+    object plus `id` (slug of the title), `city` (lowercase) and `place` (its
+    places.Place, with coordinates)."""
     return [dict(event) for event in _all_events()]
 
 
@@ -107,25 +120,6 @@ def get_event(event_id):
 
 def upcoming_events(today):
     return [e for e in load_events() if date.fromisoformat(e['date']) >= today]
-
-
-def student_city(location):
-    """The Hampton Roads city named in a student's free-text location, or
-    None. Longest name wins ('newport news' over any shorter match)."""
-    text = (location or '').casefold()
-    matches = [city for city in HAMPTON_ROADS_CITIES if re.search(rf'\b{city}\b', text)]
-    return max(matches, key=len, default=None)
-
-
-def miles_between(city_a, city_b):
-    """Great-circle distance between two Hampton Roads cities, in miles."""
-    lat1, lon1 = map(math.radians, HAMPTON_ROADS_CITIES[city_a])
-    lat2, lon2 = map(math.radians, HAMPTON_ROADS_CITIES[city_b])
-    a = (
-        math.sin((lat2 - lat1) / 2) ** 2
-        + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ** 2
-    )
-    return 3958.8 * 2 * math.asin(math.sqrt(a))
 
 
 def _words(text):
@@ -163,12 +157,12 @@ def date_score(event, today):
 
 
 def distance_miles(event, location):
-    """Miles from the student's city to the event, or None if their location
-    isn't a known Hampton Roads city."""
-    home = student_city(location)
+    """Miles from the student's place to the event, or None if their
+    location isn't one places.lookup can find."""
+    home = places.lookup(location)
     if home is None:
         return None
-    return miles_between(home, event['city'])
+    return places.miles_between(home, event['place'])
 
 
 def rank_events(gaps, location, today):
