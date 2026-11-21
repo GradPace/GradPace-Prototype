@@ -8,4 +8,5 @@ urlpatterns = [
         views.SampleEventSuggestionsView.as_view(),
         name='sample_event_suggestions',
     ),
+    path('places/', views.PlaceSearchView.as_view(), name='place_search'),
 ]
