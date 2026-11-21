@@ -96,12 +96,13 @@ def _content_words(text):
     return {w[:-1] if len(w) > 4 and w.endswith('s') else w for w in words if w not in _FILLER}
 
 
-def grounded(answer, field_text, question=''):
+def grounded(answer, field_text):
     """True if the answer sticks to what the cited field says: every number in
-    it appears in the field (or the question), and most of its other words do
-    too. A model that names a real field but writes something invented fails
+    it appears in the field, and most of its other words do too. The question
+    is deliberately not evidence: "is it 400 attendees?" mustn't let the model
+    repeat 400. A model that names a real field but writes something invented fails
     this, and the caller falls back to "that isn't in the details"."""
-    allowed = _content_words(f'{field_text} {question}')
+    allowed = _content_words(field_text)
     words = [w for w in _content_words(answer) if len(w) > 2 or w.isdigit()]
     if not words:
         return False

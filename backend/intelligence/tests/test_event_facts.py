@@ -81,9 +81,7 @@ def test_grounded_checks_the_answer_against_the_cited_field(answer, field, ok):
     assert event_facts.grounded(answer, field) is ok
 
 
-def test_words_from_the_question_may_be_repeated_in_the_answer():
-    assert (
-        event_facts.grounded('Pizza is not mentioned here.', 'Free; register online.', 'pizza?')
-        is False
-    )
+def test_a_detail_that_only_the_question_supplies_is_not_grounded():
+    # "Is it 400 attendees?" must not let the model repeat 400.
+    assert event_facts.grounded('Yes, it has 400 attendees.', 'Free; register online.') is False
     assert event_facts.grounded('Registration is free online.', 'Free; register online.') is True

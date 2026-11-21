@@ -1,9 +1,11 @@
 import json
 import re
-from datetime import date
+from datetime import date, timedelta
 
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
@@ -249,11 +251,22 @@ def field_value(event, field):
     return '; '.join(value) if isinstance(value, list) else str(value)
 
 
-def chats_remaining(user, event_id):
-    used = EventChat.objects.filter(
+# A reserved question (blank answer) older than this is from a request that
+# died mid-call, so it stops counting. Longer than the model call can last.
+RESERVATION_TTL = timedelta(minutes=2)
+
+
+def counted_chats(user, event_id):
+    """The student's questions that count toward the limit: model answers,
+    plus reservations still waiting on the model."""
+    stale = Q(answer='', created_at__lt=timezone.now() - RESERVATION_TTL)
+    return EventChat.objects.filter(
         user=user, event_id=event_id, source=EventChat.SOURCE_MODEL
-    ).count()
-    return max(0, EventChat.MAX_PER_EVENT - used)
+    ).exclude(stale)
+
+
+def chats_remaining(user, event_id):
+    return max(0, EventChat.MAX_PER_EVENT - counted_chats(user, event_id).count())
 
 
 def get_profile(user):
@@ -442,8 +455,7 @@ class EventChatView(APIView):
             # Serialise this student's chats (a no-op on SQLite, a row lock on Postgres).
             list(StudentProfile.objects.select_for_update().filter(user=user))
             earlier = list(EventChat.objects.filter(user=user, event_id=event_id))
-            used = sum(1 for c in earlier if c.source == EventChat.SOURCE_MODEL)
-            if used >= EventChat.MAX_PER_EVENT:
+            if counted_chats(user, event_id).count() >= EventChat.MAX_PER_EVENT:
                 return None, []
             slot = EventChat.objects.create(
                 user=user,
@@ -477,9 +489,7 @@ class EventChatView(APIView):
             # Whatever the model wrote for an off-topic or injected question is
             # dropped - it still counts as one of the student's questions.
             answer, found_in = OFF_TOPIC_REPLY, 'none'
-        elif found_in != 'none' and not event_facts.grounded(
-            answer, field_value(event, found_in), question
-        ):
+        elif found_in != 'none' and not event_facts.grounded(answer, field_value(event, found_in)):
             # It named a real field but wrote things that field doesn't say.
             found_in = 'none'
         if on_topic and found_in == 'none':

@@ -5,17 +5,19 @@ data/events.json stay upcoming."""
 import io
 import json
 import urllib.error
-from datetime import date
+from datetime import date, timedelta
 from unittest import mock
 
 import pytest
 from django.core.cache import cache
+from django.utils import timezone
 
 from accounts.factories import StudentProfileFactory, UserFactory
 from accounts.tests.helpers import login
 from intelligence import events as events_module
 from intelligence.factories import JobFactory, JobPostingFactory, JobSkillFactory
 from intelligence.models import EventChat
+from intelligence.views import chats_remaining
 
 TODAY = date(2026, 11, 20)
 DATACORE = 'datacore-database-engineering-conference'
@@ -607,3 +609,15 @@ def test_a_failed_model_call_gives_the_question_back(client, student):
         assert ask(client, student).status_code == 503
 
     assert EventChat.objects.count() == 0
+
+
+def test_an_abandoned_reservation_stops_counting_after_a_while(student):
+    """A worker killed mid-call leaves a blank row; it mustn't use up a question forever."""
+    stuck = EventChat.objects.create(
+        user=student.user, event_id=DATACORE, question='q', answer='', source='model'
+    )
+    assert chats_remaining(student.user, DATACORE) == 2  # still waiting on the model
+
+    EventChat.objects.filter(pk=stuck.pk).update(created_at=timezone.now() - timedelta(minutes=5))
+
+    assert chats_remaining(student.user, DATACORE) == 3
