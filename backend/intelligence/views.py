@@ -3,6 +3,7 @@ import re
 from datetime import date
 
 from django.core.cache import cache
+from django.db import transaction
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
@@ -243,6 +244,11 @@ def recommend(profile, today):
     return candidates[0], fallback_reason(candidates[0], gaps), 'fallback'
 
 
+def field_value(event, field):
+    value = event.get(field) or ''
+    return '; '.join(value) if isinstance(value, list) else str(value)
+
+
 def chats_remaining(user, event_id):
     used = EventChat.objects.filter(
         user=user, event_id=event_id, source=EventChat.SOURCE_MODEL
@@ -418,15 +424,38 @@ class EventChatView(APIView):
             self._save(request.user, event_id, question, fact, EventChat.SOURCE_FACTS)
             return Response(self._state(request.user, event_id))
 
-        history = list(
-            EventChat.objects.filter(user=request.user, event_id=event_id).exclude(
-                source=EventChat.SOURCE_FACTS
-            )
-        )
-        used = sum(1 for earlier in history if earlier.source == EventChat.SOURCE_MODEL)
-        if used >= EventChat.MAX_PER_EVENT:
+        # Take one of the student's questions *before* the slow model call, under
+        # a lock, so two requests at once can't both squeeze past the limit.
+        # The placeholder row (blank answer) counts until it's filled or removed.
+        slot, history = self._reserve(request.user, event_id, question)
+        if slot is None:
             return Response(CHAT_LIMIT_REACHED, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
+        try:
+            return self._ask_model(request, profile, event, event_id, slot, history, question)
+        except BaseException:
+            slot.delete()
+            raise
+
+    def _reserve(self, user, event_id, question):
+        with transaction.atomic():
+            # Serialise this student's chats (a no-op on SQLite, a row lock on Postgres).
+            list(StudentProfile.objects.select_for_update().filter(user=user))
+            earlier = list(EventChat.objects.filter(user=user, event_id=event_id))
+            used = sum(1 for c in earlier if c.source == EventChat.SOURCE_MODEL)
+            if used >= EventChat.MAX_PER_EVENT:
+                return None, []
+            slot = EventChat.objects.create(
+                user=user,
+                event_id=event_id,
+                question=question,
+                answer='',
+                source=EventChat.SOURCE_MODEL,
+            )
+        history = [c for c in earlier if c.source != EventChat.SOURCE_FACTS and c.answer]
+        return slot, history
+
+    def _ask_model(self, request, profile, event, event_id, slot, history, question):
         try:
             reply = chat_json(
                 chat_messages(profile, events.student_gaps(profile), event, history, question),
@@ -437,8 +466,10 @@ class EventChatView(APIView):
             found_in = reply['found_in']
             answer = str(reply['answer']).strip()[:MAX_ANSWER_CHARS]
         except LLMUnavailable, KeyError, TypeError:
+            slot.delete()
             return Response(UNAVAILABLE, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         if not answer or found_in not in FOUND_IN_CHOICES:
+            slot.delete()
             return Response(UNAVAILABLE, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         source = EventChat.SOURCE_MODEL
@@ -446,12 +477,18 @@ class EventChatView(APIView):
             # Whatever the model wrote for an off-topic or injected question is
             # dropped - it still counts as one of the student's questions.
             answer, found_in = OFF_TOPIC_REPLY, 'none'
-        elif found_in == 'none':
+        elif found_in != 'none' and not event_facts.grounded(
+            answer, field_value(event, found_in), question
+        ):
+            # It named a real field but wrote things that field doesn't say.
+            found_in = 'none'
+        if on_topic and found_in == 'none':
             # The model couldn't point at a field that says this, so don't pass
             # on anything it wrote - and don't use up one of the questions.
             answer, source = NOT_IN_DETAILS_REPLY, EventChat.SOURCE_UNKNOWN
 
-        self._save(request.user, event_id, question, answer, source, found_in)
+        slot.answer, slot.source, slot.found_in = answer, source, found_in
+        slot.save()
         return Response(self._state(request.user, event_id))
 
     def _save(self, user, event_id, question, answer, source, found_in=''):
@@ -465,7 +502,7 @@ class EventChatView(APIView):
         )
 
     def _state(self, user, event_id):
-        exchanges = EventChat.objects.filter(user=user, event_id=event_id)
+        exchanges = EventChat.objects.filter(user=user, event_id=event_id).exclude(answer='')
         return {
             'exchanges': [
                 {'question': c.question, 'answer': c.answer, 'source': c.source} for c in exchanges
