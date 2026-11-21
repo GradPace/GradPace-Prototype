@@ -121,8 +121,8 @@ def public_event(event):
 
 def describe_event(event):
     return (
-        f"{event['title']} - {event['focus']}, {event['location']}, "
-        f"{event['date']} at {event['time']}. Topics: {'; '.join(event['key_topics'])}."
+        f'{event["title"]} - {event["focus"]}, {event["location"]}, '
+        f'{event["date"]} at {event["time"]}. Topics: {"; ".join(event["key_topics"])}.'
     )
 
 
@@ -132,16 +132,19 @@ def gaps_text(gaps):
 
 def fallback_reason(event, gaps):
     """Used when the model is down - built from the same ranking."""
-    matched = [
-        g['label'] for g in gaps if events._words(g['label']) & events._words(event['focus'])
-    ]
+    matched = [g['label'] for g in events.gaps_covered(event, gaps)]
     if matched:
-        return f"It covers {event['focus']}, which lines up with your skill gaps in {', '.join(matched)}."
-    return f"It's the best upcoming match for you on timing and location, covering {event['focus']}."
+        return (
+            f'It covers {event["focus"]}, which lines up with your skill gaps in '
+            f'{", ".join(matched)}.'
+        )
+    return (
+        f"It's the best upcoming match for you on timing and location, covering {event['focus']}."
+    )
 
 
 def recommendation_messages(profile, gaps, candidates):
-    listing = '\n'.join(f"- id={c['id']}: {describe_event(c)}" for c in candidates)
+    listing = '\n'.join(f'- id={c["id"]}: {describe_event(c)}' for c in candidates)
     target = profile.target_job.title if profile.target_job else 'not chosen yet'
     return [
         {
@@ -191,7 +194,7 @@ def recommend(profile, today):
         reason = str(reply['reason']).strip()
         if reason:
             return chosen, reason, 'ai'
-    except (LLMUnavailable, StopIteration, KeyError, TypeError):
+    except LLMUnavailable, StopIteration, KeyError, TypeError:
         pass
     return candidates[0], fallback_reason(candidates[0], gaps), 'fallback'
 
@@ -259,7 +262,7 @@ def chat_messages(profile, gaps, event, history, question):
         {
             'role': 'system',
             'content': (
-                'You answer a university student\'s questions about ONE career event '
+                "You answer a university student's questions about ONE career event "
                 'that was recommended to them, and how it fits their skill gaps. '
                 'Use only the event details given - never invent speakers, prices, '
                 'addresses or schedules; if the details do not say, tell the student '
@@ -335,7 +338,7 @@ class EventChatView(APIView):
                 max_tokens=250,
             )
             answer = str(reply['answer']).strip()
-        except (LLMUnavailable, KeyError, TypeError):
+        except LLMUnavailable, KeyError, TypeError:
             return Response(UNAVAILABLE, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         if not answer:
             return Response(UNAVAILABLE, status=status.HTTP_503_SERVICE_UNAVAILABLE)
