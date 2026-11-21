@@ -40,22 +40,35 @@ def test_upcoming_events_drops_past_ones_but_keeps_today():
     assert not any(t.startswith('AI Horizons') for t in titles)  # the 20th
 
 
-def test_student_city_reads_a_hampton_roads_city_out_of_free_text():
-    assert events.student_city('Norfolk, VA') == 'norfolk'
-    assert events.student_city('  virginia beach ') == 'virginia beach'
-    assert events.student_city('Newport News, Virginia') == 'newport news'
+def test_every_event_resolves_to_a_place_with_coordinates():
+    for event in events.load_events():
+        assert event['place'].label.casefold() == event['location'].casefold() or (
+            event['city'] == 'gloucester'  # filed by the Census as "Gloucester Courthouse"
+        )
+        assert event['place'].lat and event['place'].lon
 
 
-def test_student_city_is_none_outside_hampton_roads_or_when_blank():
-    assert events.student_city('Boston, MA') is None
-    assert events.student_city('') is None
-    assert events.student_city(None) is None
+def test_distance_is_zero_for_the_same_city_and_grows_with_the_gap():
+    datacore = events.get_event('datacore-database-engineering-conference')  # Yorktown
+
+    assert events.distance_miles(datacore, 'Yorktown, VA') == 0
+    assert 20 < events.distance_miles(datacore, 'Norfolk, VA') < 40
+    assert events.distance_miles(datacore, 'Boston, MA') > 400
 
 
-def test_miles_between_is_zero_for_the_same_city_and_sensible_for_others():
-    assert events.miles_between('norfolk', 'norfolk') == 0
-    assert events.miles_between('norfolk', 'portsmouth') < 5
-    assert 30 < events.miles_between('norfolk', 'williamsburg') < 50
+def test_distance_is_none_when_the_location_is_unknown_or_ambiguous():
+    datacore = events.get_event('datacore-database-engineering-conference')
+
+    assert events.distance_miles(datacore, '') is None
+    assert events.distance_miles(datacore, 'Nowhereville, ZZ') is None
+    assert events.distance_miles(datacore, 'Norfolk') is None  # no state: several Norfolks
+
+
+def test_a_student_far_outside_the_region_still_gets_ranked_just_by_the_rest():
+    ranked = events.rank_events([], 'Boston, MA', TODAY)
+
+    assert ranked
+    assert all(e['distance_miles'] > 400 for e in ranked)
 
 
 def test_skill_fit_is_the_share_of_gap_weight_the_event_covers():
