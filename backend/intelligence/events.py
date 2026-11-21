@@ -149,9 +149,7 @@ def rank_events(gaps, location, today):
     for event in upcoming_events(today):
         fit = skill_fit(event, gaps)
         miles = distance_miles(event, location)
-        distance = (
-            NEUTRAL_DISTANCE_SCORE if miles is None else max(0.0, 1.0 - miles / FAR_MILES)
-        )
+        distance = NEUTRAL_DISTANCE_SCORE if miles is None else max(0.0, 1.0 - miles / FAR_MILES)
         score = (
             WEIGHT_SKILLS * fit
             + WEIGHT_DATE * date_score(event, today)

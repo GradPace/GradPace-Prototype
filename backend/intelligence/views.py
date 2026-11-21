@@ -1,13 +1,25 @@
 import json
+from datetime import date
 
+from django.core.cache import cache
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from . import places
+from accounts.models import StudentProfile
+
+from . import events, places
 from .llm import LLMUnavailable, chat_json
-from .serializers import EventSuggestionsSerializer, PlaceSerializer
+from .models import EventChat
+from .serializers import (
+    EventChatRequestSerializer,
+    EventChatSerializer,
+    EventRecommendationSerializer,
+    EventSerializer,
+    EventSuggestionsSerializer,
+    PlaceSerializer,
+)
 
 SAMPLE_STUDENT = {
     'major': 'Computer Science',
@@ -110,3 +122,262 @@ class PlaceSearchView(APIView):
                 for place in places.search(query, limit=PLACE_RESULTS)
             ]
         )
+
+
+# --- Event recommendation + chat (prototype: Hampton Roads only) ----------
+
+# How many ranked events the model chooses between.
+CANDIDATES = 3
+# The model call is slow (one CPU slot), so a student's recommendation is
+# reused for this long instead of being regenerated on every page load.
+RECOMMENDATION_CACHE_SECONDS = 600
+
+PUBLIC_EVENT_FIELDS = ('id', 'title', 'date', 'time', 'location', 'focus', 'key_topics')
+
+NO_PROFILE = {'detail': 'No student profile yet.'}
+NO_EVENTS = {'detail': 'No upcoming Hampton Roads events.'}
+CHAT_LIMIT_REACHED = {
+    'detail': f'You have used all {EventChat.MAX_PER_EVENT} questions for this event.',
+    'code': 'chat_limit_reached',
+}
+
+
+def public_event(event):
+    return {field: event[field] for field in PUBLIC_EVENT_FIELDS}
+
+
+def describe_event(event):
+    return (
+        f'{event["title"]} - {event["focus"]}, {event["location"]}, '
+        f'{event["date"]} at {event["time"]}. Topics: {"; ".join(event["key_topics"])}.'
+    )
+
+
+def gaps_text(gaps):
+    return ', '.join(g['label'] for g in gaps) or 'none recorded yet'
+
+
+def fallback_reason(event, gaps):
+    """Used when the model is down - built from the same ranking."""
+    matched = [
+        g['label'] for g in gaps if events._words(g['label']) & events._words(event['focus'])
+    ]
+    if matched:
+        return f'It covers {event["focus"]}, which lines up with your skill gaps in {", ".join(matched)}.'
+    return (
+        f"It's the best upcoming match for you on timing and location, covering {event['focus']}."
+    )
+
+
+def recommendation_messages(profile, gaps, candidates):
+    listing = '\n'.join(f'- id={c["id"]}: {describe_event(c)}' for c in candidates)
+    target = profile.target_job.title if profile.target_job else 'not chosen yet'
+    return [
+        {
+            'role': 'system',
+            'content': (
+                'You recommend one career event to a university student. Pick the '
+                'single best event from the list, preferring ones that help close '
+                "the student's skill gaps. Give a one- or two-sentence reason that "
+                'mentions the gap it helps with. Use only facts in the list. '
+                'Answer in JSON only.'
+            ),
+        },
+        {
+            'role': 'user',
+            'content': (
+                f'Student: {profile.major}; target job: {target}; '
+                f'skill gaps (biggest first): {gaps_text(gaps)}.\n'
+                f'Events:\n{listing}'
+            ),
+        },
+    ]
+
+
+def recommend(profile, today):
+    """Rank, let the model choose among the top few, and fall back to the top
+    ranked event (with a templated reason) if it can't. Returns
+    (ranked_event, reason, reason_source), or None if no events are left."""
+    gaps = events.student_gaps(profile)
+    ranked = events.rank_events(gaps, profile.location, today)
+    if not ranked:
+        return None
+    candidates = ranked[:CANDIDATES]
+
+    schema = {
+        'type': 'object',
+        'properties': {
+            'event_id': {'type': 'string', 'enum': [c['id'] for c in candidates]},
+            'reason': {'type': 'string'},
+        },
+        'required': ['event_id', 'reason'],
+    }
+    try:
+        reply = chat_json(
+            recommendation_messages(profile, gaps, candidates), schema=schema, max_tokens=200
+        )
+        chosen = next(c for c in candidates if c['id'] == reply['event_id'])
+        reason = str(reply['reason']).strip()
+        if reason:
+            return chosen, reason, 'ai'
+    except LLMUnavailable, StopIteration, KeyError, TypeError:
+        pass
+    return candidates[0], fallback_reason(candidates[0], gaps), 'fallback'
+
+
+def chats_remaining(user, event_id):
+    used = EventChat.objects.filter(user=user, event_id=event_id).count()
+    return max(0, EventChat.MAX_PER_EVENT - used)
+
+
+def get_profile(user):
+    try:
+        return user.student_profile
+    except StudentProfile.DoesNotExist:
+        return None
+
+
+class EventListView(APIView):
+    """Upcoming Hampton Roads events (the mock data), soonest first."""
+
+    @extend_schema(responses={200: EventSerializer(many=True)})
+    def get(self, request):
+        return Response([public_event(e) for e in events.upcoming_events(date.today())])
+
+
+class EventRecommendationView(APIView):
+    """The one event recommended to the logged-in student, ranked on their
+    skill gaps (for their target job), the event date and distance, with the
+    model's reason. Falls back to a templated reason if the model is down.
+    404 without a student profile, or when no upcoming events are left."""
+
+    throttle_scope = 'llm'
+
+    @extend_schema(responses={200: EventRecommendationSerializer})
+    def get(self, request):
+        profile = get_profile(request.user)
+        if profile is None:
+            return Response(NO_PROFILE, status=status.HTTP_404_NOT_FOUND)
+
+        today = date.today()
+        cache_key = f'event-recommendation:{request.user.pk}:{today}'
+        cached = cache.get(cache_key)
+        if cached is None:
+            result = recommend(profile, today)
+            if result is None:
+                return Response(NO_EVENTS, status=status.HTTP_404_NOT_FOUND)
+            chosen, reason, source = result
+            cached = {
+                'event': public_event(chosen),
+                'reason': reason,
+                'reason_source': source,
+                'distance_miles': chosen['distance_miles'],
+            }
+            # A fallback is cheap to redo and should heal once the model is
+            # back, so only the model's own answers are kept.
+            if source == 'ai':
+                cache.set(cache_key, cached, RECOMMENDATION_CACHE_SECONDS)
+
+        return Response(
+            {**cached, 'chats_remaining': chats_remaining(request.user, cached['event']['id'])}
+        )
+
+
+def chat_messages(profile, gaps, event, history, question):
+    messages = [
+        {
+            'role': 'system',
+            'content': (
+                "You answer a university student's questions about ONE career event "
+                'that was recommended to them, and how it fits their skill gaps. '
+                'Use only the event details given - never invent speakers, prices, '
+                'addresses or schedules; if the details do not say, tell the student '
+                'you do not know. Stay on this event. Keep answers to 2-3 sentences. '
+                'Answer in JSON only.\n\n'
+                f'Event: {describe_event(event)}\n'
+                f'Student: {profile.major}; skill gaps: {gaps_text(gaps)}.'
+            ),
+        }
+    ]
+    for earlier in history:
+        messages.append({'role': 'user', 'content': earlier.question})
+        messages.append({'role': 'assistant', 'content': json.dumps({'answer': earlier.answer})})
+    messages.append({'role': 'user', 'content': question})
+    return messages
+
+
+CHAT_SCHEMA = {
+    'type': 'object',
+    'properties': {'answer': {'type': 'string'}},
+    'required': ['answer'],
+}
+
+
+class EventChatView(APIView):
+    """Ask the model about one event - at most EventChat.MAX_PER_EVENT
+    questions per student per event (prototype limit; 429 `chat_limit_reached`
+    after that). A failed model call isn't counted. 404 for an unknown or
+    past event."""
+
+    throttle_scope = 'llm'
+
+    def _event(self, event_id):
+        event = events.get_event(event_id)
+        if event is None or event['date'] < date.today().isoformat():
+            return None
+        return event
+
+    @extend_schema(responses={200: EventChatSerializer})
+    def get(self, request, event_id):
+        if self._event(event_id) is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(self._state(request.user, event_id))
+
+    @extend_schema(
+        request=EventChatRequestSerializer,
+        responses={
+            200: EventChatSerializer,
+            429: OpenApiResponse(description='All questions for this event are used.'),
+            503: OpenApiResponse(description='The model is unreachable or gave an unusable reply.'),
+        },
+    )
+    def post(self, request, event_id):
+        profile = get_profile(request.user)
+        if profile is None:
+            return Response(NO_PROFILE, status=status.HTTP_404_NOT_FOUND)
+        event = self._event(event_id)
+        if event is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        serializer = EventChatRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        question = serializer.validated_data['question']
+
+        history = list(EventChat.objects.filter(user=request.user, event_id=event_id))
+        if len(history) >= EventChat.MAX_PER_EVENT:
+            return Response(CHAT_LIMIT_REACHED, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        try:
+            reply = chat_json(
+                chat_messages(profile, events.student_gaps(profile), event, history, question),
+                schema=CHAT_SCHEMA,
+                max_tokens=250,
+            )
+            answer = str(reply['answer']).strip()
+        except LLMUnavailable, KeyError, TypeError:
+            return Response(UNAVAILABLE, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        if not answer:
+            return Response(UNAVAILABLE, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        EventChat.objects.create(
+            user=request.user, event_id=event_id, question=question, answer=answer
+        )
+        return Response(self._state(request.user, event_id))
+
+    def _state(self, user, event_id):
+        exchanges = EventChat.objects.filter(user=user, event_id=event_id)
+        return {
+            'exchanges': [{'question': c.question, 'answer': c.answer} for c in exchanges],
+            'chats_remaining': chats_remaining(user, event_id),
+            'max_chats': EventChat.MAX_PER_EVENT,
+        }
