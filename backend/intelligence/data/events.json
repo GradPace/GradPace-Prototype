@@ -1,0 +1,242 @@
+[
+  {
+    "title": "AI Horizons: Building Responsible Intelligent Systems",
+    "date": "2026-11-20",
+    "location": "Norfolk, VA",
+    "time": "10:00 AM EST",
+    "focus": "Artificial Intelligence and Machine Learning",
+    "key_topics": [
+      "Training and evaluating machine learning models",
+      "Understanding neural network architectures",
+      "Identifying and mitigating algorithmic bias"
+    ]
+  },
+  {
+    "title": "CyberDefend: Ethical Hacking Bootcamp",
+    "date": "2026-11-24",
+    "location": "Virginia Beach, VA",
+    "time": "1:00 PM EST",
+    "focus": "Cybersecurity and Ethical Hacking",
+    "key_topics": [
+      "Performing penetration testing",
+      "Identifying common network vulnerabilities",
+      "Implementing defensive security strategies"
+    ]
+  },
+  {
+    "title": "CloudLaunch: Modern Infrastructure Workshop",
+    "date": "2026-11-28",
+    "location": "Chesapeake, VA",
+    "time": "9:30 AM EST",
+    "focus": "Cloud Computing",
+    "key_topics": [
+      "Deploying applications using cloud services",
+      "Managing infrastructure with containers",
+      "Designing scalable cloud architectures"
+    ]
+  },
+  {
+    "title": "Code for Everyone: Web Accessibility Summit",
+    "date": "2026-11-30",
+    "location": "Portsmouth, VA",
+    "time": "11:00 AM EST",
+    "focus": "Web Development and Accessibility",
+    "key_topics": [
+      "Building accessible websites with HTML and CSS",
+      "Implementing responsive frontend frameworks",
+      "Testing compliance with accessibility standards"
+    ]
+  },
+  {
+    "title": "Mobile Makers: App Development Lab",
+    "date": "2026-12-04",
+    "location": "Suffolk, VA",
+    "time": "2:00 PM EST",
+    "focus": "Mobile Application Development",
+    "key_topics": [
+      "Developing cross-platform mobile applications",
+      "Integrating mobile applications with APIs",
+      "Publishing and testing applications"
+    ]
+  },
+  {
+    "title": "Distributed by Design: Systems Engineering Forum",
+    "date": "2026-12-08",
+    "location": "Hampton, VA",
+    "time": "10:30 AM EST",
+    "focus": "Distributed Systems",
+    "key_topics": [
+      "Understanding distributed consensus algorithms",
+      "Managing concurrency and fault tolerance",
+      "Designing reliable microservice architectures"
+    ]
+  },
+  {
+    "title": "GameDev Forge: Interactive Worlds Workshop",
+    "date": "2026-12-12",
+    "location": "Newport News, VA",
+    "time": "12:00 PM EST",
+    "focus": "Game Development",
+    "key_topics": [
+      "Programming gameplay mechanics",
+      "Implementing physics and collision detection",
+      "Optimizing real-time game performance"
+    ]
+  },
+  {
+    "title": "Robotics in Motion: Autonomous Machines Expo",
+    "date": "2026-12-16",
+    "location": "Williamsburg, VA",
+    "time": "9:00 AM EST",
+    "focus": "Robotics and Autonomous Systems",
+    "key_topics": [
+      "Programming autonomous robot navigation",
+      "Integrating sensors and actuators",
+      "Implementing pathfinding algorithms"
+    ]
+  },
+  {
+    "title": "DataCore: Database Engineering Conference",
+    "date": "2026-12-19",
+    "location": "Yorktown, VA",
+    "time": "1:30 PM EST",
+    "focus": "Database Systems",
+    "key_topics": [
+      "Designing relational database schemas",
+      "Optimizing SQL query performance",
+      "Comparing SQL and NoSQL databases"
+    ]
+  },
+  {
+    "title": "Open Source Connect: Developer Collaboration Day",
+    "date": "2027-01-07",
+    "location": "Smithfield, VA",
+    "time": "11:00 AM EST",
+    "focus": "Open Source Software Development",
+    "key_topics": [
+      "Contributing to public GitHub repositories",
+      "Managing collaborative development workflows",
+      "Understanding software licensing"
+    ]
+  },
+  {
+    "title": "DataVision: Analytics and Visualization Summit",
+    "date": "2027-01-11",
+    "location": "Richmond, VA",
+    "time": "10:00 AM EST",
+    "focus": "Data Science and Analytics",
+    "key_topics": [
+      "Cleaning and preparing large datasets",
+      "Performing exploratory data analysis",
+      "Creating interactive data visualizations"
+    ]
+  },
+  {
+    "title": "Human First: UX Research and Design Studio",
+    "date": "2027-01-15",
+    "location": "Gloucester, VA",
+    "time": "2:00 PM EST",
+    "focus": "Human-Computer Interaction",
+    "key_topics": [
+      "Conducting user research and usability testing",
+      "Designing intuitive user interfaces",
+      "Creating and evaluating interactive prototypes"
+    ]
+  },
+  {
+    "title": "CryptoLab: Applied Cryptography Workshop",
+    "date": "2027-01-20",
+    "location": "Petersburg, VA",
+    "time": "9:30 AM EST",
+    "focus": "Cryptography and Secure Communications",
+    "key_topics": [
+      "Understanding symmetric and asymmetric encryption",
+      "Implementing digital signatures",
+      "Securing data transmission with cryptographic protocols"
+    ]
+  },
+  {
+    "title": "VisionTech: Computer Vision Innovation Day",
+    "date": "2027-01-24",
+    "location": "Hopewell, VA",
+    "time": "12:30 PM EST",
+    "focus": "Computer Vision",
+    "key_topics": [
+      "Processing images with computer vision libraries",
+      "Training object detection models",
+      "Applying visual recognition to real-world problems"
+    ]
+  },
+  {
+    "title": "Embedded Futures: Smart Devices Workshop",
+    "date": "2027-01-29",
+    "location": "Colonial Heights, VA",
+    "time": "10:00 AM EST",
+    "focus": "Embedded Systems and Internet of Things",
+    "key_topics": [
+      "Programming microcontrollers",
+      "Integrating sensors with embedded software",
+      "Connecting IoT devices using communication protocols"
+    ]
+  },
+  {
+    "title": "Network Nexus: Internet Infrastructure Forum",
+    "date": "2027-02-03",
+    "location": "Franklin, VA",
+    "time": "1:00 PM EST",
+    "focus": "Computer Networking",
+    "key_topics": [
+      "Understanding TCP/IP and network routing",
+      "Analyzing network traffic and packet structures",
+      "Configuring secure network environments"
+    ]
+  },
+  {
+    "title": "AlgoArena: Competitive Programming Challenge",
+    "date": "2027-02-08",
+    "location": "Emporia, VA",
+    "time": "9:00 AM EST",
+    "focus": "Algorithms and Competitive Programming",
+    "key_topics": [
+      "Solving problems with graph algorithms",
+      "Applying dynamic programming techniques",
+      "Analyzing time and space complexity"
+    ]
+  },
+  {
+    "title": "BioCode: Computing Meets Biology",
+    "date": "2027-02-13",
+    "location": "Elizabeth City, NC",
+    "time": "11:30 AM EST",
+    "focus": "Bioinformatics and Computational Biology",
+    "key_topics": [
+      "Analyzing DNA sequence data",
+      "Using algorithms for biological pattern matching",
+      "Applying machine learning to genomic datasets"
+    ]
+  },
+  {
+    "title": "Quantum Leap: Introduction to Quantum Computing",
+    "date": "2027-02-19",
+    "location": "Edenton, NC",
+    "time": "10:30 AM EST",
+    "focus": "Quantum Computing",
+    "key_topics": [
+      "Understanding qubits and quantum gates",
+      "Exploring fundamental quantum algorithms",
+      "Simulating quantum circuits with software"
+    ]
+  },
+  {
+    "title": "Launch Your Tech Career: CS Career Accelerator",
+    "date": "2027-02-25",
+    "location": "Moyock, NC",
+    "time": "3:00 PM EST",
+    "focus": "Software Engineering Careers and Professional Development",
+    "key_topics": [
+      "Preparing for technical coding interviews",
+      "Building an effective software engineering portfolio",
+      "Networking with recruiters and technology professionals"
+    ]
+  }
+]
