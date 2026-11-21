@@ -144,11 +144,26 @@ class EventChat(models.Model):
 
     MAX_PER_EVENT = 3
 
+    # Only 'model' answers count toward MAX_PER_EVENT. 'facts' were looked up
+    # from the event data and 'unknown' were the model saying the details
+    # don't cover it - neither is a real use of the model's answer.
+    SOURCE_MODEL = 'model'
+    SOURCE_FACTS = 'facts'
+    SOURCE_UNKNOWN = 'unknown'
+    SOURCE_CHOICES = [
+        (SOURCE_MODEL, 'Model'),
+        (SOURCE_FACTS, 'Event facts'),
+        (SOURCE_UNKNOWN, 'Not in the event details'),
+    ]
+
     user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE, related_name='+')
     # Slug from intelligence.events - the events live in a JSON file, not a table.
     event_id = models.CharField(max_length=150)
     question = models.CharField(max_length=300)
     answer = models.TextField()
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default=SOURCE_MODEL)
+    # The event field the model said its answer came from (blank for facts).
+    found_in = models.CharField(max_length=40, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
