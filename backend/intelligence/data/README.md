@@ -9,6 +9,9 @@ resemblance to real organizations is coincidental.
 | `build_official_jobs.py` | One-off script that builds `official_jobs.json` from the raw BLS and O\*NET files. |
 | `generated_postings.json` | 400 synthetic job postings, each tied to an occupation by `soc_code`. |
 | `validate_postings.py` | Checks `generated_postings.json` against `official_jobs.json`. |
+| `events.json` | 20 mock career events (fictional venues, speakers and costs), with the details the event chat answers from. |
+| `places.csv` | ~32,000 US places (name, state, lat/lon, population) - powers the location autocomplete and event distances. |
+| `build_places.py` | One-off script that builds `places.csv` from the US Census Gazetteer (places) and 2023 population estimates. Public domain. |
 
 ## How generated_postings.json was made
 
