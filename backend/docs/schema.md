@@ -16,6 +16,7 @@ Crow's-foot symbols: `||` exactly one, `o|` zero or one, `o{` zero or many.
 
 ```mermaid
 erDiagram
+    CustomUser ||--o{ EventChat : "EventChat.user"
     CustomUser ||--o| AdminProfile : "AdminProfile.user"
     CustomUser ||--o| AlumniProfile : "AlumniProfile.user"
     CustomUser ||--o| StudentProfile : "StudentProfile.user"
@@ -133,6 +134,16 @@ erDiagram
         DateTimeField created_at
         DateTimeField updated_at
     }
+    EventChat {
+        BigAutoField id PK
+        UUIDField user_id FK
+        CharField event_id
+        CharField question
+        TextField answer
+        CharField source
+        CharField found_in
+        DateTimeField created_at
+    }
 ```
 
 ### Foreign keys
@@ -143,6 +154,7 @@ erDiagram
 | `AlumniProfile` | `user` | `CustomUser` | one-to-one | row deleted |
 | `Certificate` | `student` | `StudentProfile` | many Certificate to one StudentProfile | row deleted |
 | `CustomUser` | `role` | `Role` | many CustomUser to one Role (optional) | FK set to NULL |
+| `EventChat` | `user` | `CustomUser` | many EventChat to one CustomUser | row deleted |
 | `JobPosting` | `job` | `Job` | many JobPosting to one Job | row deleted |
 | `JobPosting` | `skills` | `JobSkill` | many-to-many | link row removed |
 | `JobSkill` | `job` | `Job` | many JobSkill to one Job | row deleted |
