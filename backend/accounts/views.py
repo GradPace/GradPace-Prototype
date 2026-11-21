@@ -8,7 +8,7 @@ from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from drf_spectacular.utils import extend_schema
-from rest_framework import generics, permissions, status
+from rest_framework import exceptions, generics, permissions, status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -276,8 +276,17 @@ class AlumniConversionView(APIView):
         serializer.is_valid(raise_exception=True)
         graduation_date = serializer.validated_data['graduation_date']
 
-        user = request.user
         with transaction.atomic():
+            # IsStudent ran before this transaction, so check the role again
+            # with the user's row locked. If two conversions arrive at once
+            # (a double-clicked button), the second waits here until the
+            # first commits, then sees the alumni role and gets a 403 rather
+            # than a second 200 that overwrites graduation_date. The lock
+            # only exists on Postgres (prod). SQLite ignores it.
+            user = User.objects.select_for_update().get(pk=request.user.pk)
+            if user.role is None or user.role.role_name != roles.STUDENT:
+                raise exceptions.PermissionDenied(IsStudent.message)
+
             # Seeded by migration 0002_seed_roles.
             user.role = Role.objects.get(role_name=roles.ALUMNI)
             user.save(update_fields=['role'])

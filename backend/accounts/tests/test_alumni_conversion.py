@@ -1,6 +1,7 @@
 import datetime
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from .. import roles
@@ -14,7 +15,10 @@ from ..factories import (
     UserFactory,
 )
 from ..models import AlumniProfile, Certificate, Skill, StudentProfile, TakenClass
+from ..permissions import IsStudent
 from .helpers import login
+
+User = get_user_model()
 
 URL = '/api/auth/convert-to-alumni/'
 GRADUATION_DATE = '2025-05-10'
@@ -191,3 +195,35 @@ def test_existing_alumni_profile_is_reused(client):
     assert AlumniProfile.objects.filter(user=profile.user).count() == 1
     existing.refresh_from_db()
     assert existing.graduation_date == datetime.date(2025, 5, 10)
+
+
+# Two conversions at once
+@pytest.mark.django_db
+def test_second_conversion_in_flight_is_rejected(client, monkeypatch):
+    """A double-clicked button: this request passes IsStudent, then the
+    other request finishes converting before this one reaches its
+    transaction. The role is re-checked under a row lock, so this one gets a
+    403 instead of a second 200 that overwrites the graduation date.
+
+    Simulated rather than run on two threads: the suite's in-memory SQLite
+    gives each thread its own empty database and ignores
+    select_for_update()."""
+    profile = StudentProfileFactory()
+    first_date = datetime.date(2024, 12, 15)
+    check_role = IsStudent.has_permission
+
+    def other_request_converts_right_after(self, request, view):
+        allowed = check_role(self, request, view)
+        User.objects.filter(pk=profile.user.pk).update(role=RoleFactory(role_name=roles.ALUMNI))
+        StudentProfile.objects.filter(pk=profile.pk).update(graduated=True)
+        AlumniProfile.objects.create(user=profile.user, graduation_date=first_date)
+        return allowed
+
+    monkeypatch.setattr(IsStudent, 'has_permission', other_request_converts_right_after)
+
+    response = convert(client, profile.user)
+
+    assert response.status_code == 403
+    assert response.json() == {'detail': IsStudent.message}
+    assert AlumniProfile.objects.get(user=profile.user).graduation_date == first_date
+    assert role_of(profile.user) == roles.ALUMNI
