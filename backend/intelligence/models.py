@@ -135,3 +135,25 @@ class JobPosting(models.Model):
         skills = list(skills)
         validate_skills_belong_to_job(self.job, skills)
         self.skills.set(skills)
+
+
+class EventChat(models.Model):
+    """One question a student asked the model about a recommended event, and
+    its answer. Prototype limit: MAX_PER_EVENT questions per student per
+    event - counted from these rows, so it holds across devices and reloads."""
+
+    MAX_PER_EVENT = 3
+
+    user = models.ForeignKey('accounts.CustomUser', on_delete=models.CASCADE, related_name='+')
+    # Slug from intelligence.events - the events live in a JSON file, not a table.
+    event_id = models.CharField(max_length=150)
+    question = models.CharField(max_length=300)
+    answer = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['user', 'event_id'])]
+        ordering = ['created_at', 'id']
+
+    def __str__(self):
+        return f'{self.user_id} / {self.event_id}: {self.question[:40]}'
