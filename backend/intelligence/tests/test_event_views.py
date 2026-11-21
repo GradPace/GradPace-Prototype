@@ -30,6 +30,18 @@ def setup(db):
         yield
 
 
+@pytest.fixture(autouse=True)
+def lenient_grounding(request):
+    """Most tests fake the model with throwaway answers ('ok'), so skip the
+    check that an answer matches its cited field - except where a test is
+    marked real_grounding."""
+    if request.node.get_closest_marker('real_grounding'):
+        yield
+    else:
+        with mock.patch('intelligence.views.event_facts.grounded', return_value=True):
+            yield
+
+
 @pytest.fixture
 def student(db):
     """A Yorktown student aiming for Software Developers, with no skills yet -
@@ -542,3 +554,56 @@ def test_the_model_answer_is_kept_and_counted_when_it_names_a_field(client, stud
     assert response.json()['exchanges'][0]['source'] == 'model'
     assert EventChat.objects.get().found_in == 'agenda'
     assert response.json()['chats_remaining'] == 2
+
+
+# --- grounding and the 3-question race ---
+
+
+@pytest.mark.real_grounding
+def test_an_answer_that_matches_its_cited_field_is_kept(client, student):
+    text = 'Hands-on sessions on designing relational schemas and tuning SQL queries.'
+    with model(answer(text, found_in='description')):
+        response = ask(client, student, 'What is it?')
+
+    assert response.json()['exchanges'][0]['answer'] == text
+    assert response.json()['exchanges'][0]['source'] == 'model'
+
+
+@pytest.mark.real_grounding
+def test_an_invented_answer_that_names_a_real_field_is_replaced_and_not_counted(client, student):
+    with model(answer('Lunch is catered by Joe for 400 attendees.', found_in='description')):
+        response = ask(client, student, 'What is it?')
+
+    exchange = response.json()['exchanges'][0]
+    assert exchange['answer'] == "That isn't in the event details, so I can't say."
+    assert exchange['source'] == 'unknown'
+    assert response.json()['chats_remaining'] == 3
+    assert EventChat.objects.get().found_in == 'none'
+
+
+def test_a_question_asked_while_another_is_answering_cannot_pass_the_limit(client, student):
+    """The slot is taken before the model call, so a request that arrives
+    mid-call sees it: with two answers used, the in-flight one is the third."""
+    with model(answer('1'), answer('2')):
+        ask(client, student)
+        ask(client, student)
+
+    nested = {}
+
+    def slow_model(*args, **kwargs):
+        nested['response'] = ask(client, student)  # arrives while the model is busy
+        return {'on_topic': True, 'found_in': 'description', 'answer': 'Third.'}
+
+    with mock.patch('intelligence.views.chat_json', side_effect=slow_model):
+        first = ask(client, student)
+
+    assert nested['response'].status_code == 429
+    assert first.status_code == 200
+    assert EventChat.objects.filter(source='model').count() == 3
+
+
+def test_a_failed_model_call_gives_the_question_back(client, student):
+    with model_down():
+        assert ask(client, student).status_code == 503
+
+    assert EventChat.objects.count() == 0

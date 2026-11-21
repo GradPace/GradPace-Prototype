@@ -75,3 +75,41 @@ def answer(question, event):
     if not matched:
         return None
     return ' '.join(ANSWERS[name](event) for name in matched)
+
+
+# Filler that doesn't need to appear in the cited field.
+_FILLER = frozenset(
+    {
+        *('this', 'that', 'with', 'from', 'have', 'will', 'your', 'their', 'there', 'about'),
+        *('which', 'what', 'when', 'where', 'these', 'those', 'they', 'them', 'event', 'also'),
+        *('into', 'more', 'some', 'such', 'than', 'then', 'been', 'being', 'does', 'only'),
+        *('over', 'just', 'very', 'can', 'could', 'would', 'should', 'must', 'may', 'might'),
+        *('for', 'and', 'the', 'are', 'you', 'its', 'was', 'were', 'has', 'had', 'not', 'but'),
+        *('all', 'any', 'each', 'other'),
+    }
+)
+
+
+def _content_words(text):
+    words = re.findall(r'[a-z0-9]+', text.casefold())
+    # Drop a plural 's' so 'sessions' matches 'session'.
+    return {w[:-1] if len(w) > 4 and w.endswith('s') else w for w in words if w not in _FILLER}
+
+
+def grounded(answer, field_text, question=''):
+    """True if the answer sticks to what the cited field says: every number in
+    it appears in the field (or the question), and most of its other words do
+    too. A model that names a real field but writes something invented fails
+    this, and the caller falls back to "that isn't in the details"."""
+    allowed = _content_words(f'{field_text} {question}')
+    words = [w for w in _content_words(answer) if len(w) > 2 or w.isdigit()]
+    if not words:
+        return False
+    numbers = [w for w in words if any(ch.isdigit() for ch in w)]
+    if any(n not in allowed for n in numbers):
+        return False
+    return sum(1 for w in words if w in allowed) / len(words) >= GROUNDED_SHARE
+
+
+# Share of an answer's content words that must come from the cited field.
+GROUNDED_SHARE = 0.6

@@ -61,3 +61,29 @@ def test_a_tba_venue_is_reported_as_tba(event):
     event = {**event, 'venue': 'TBA'}
 
     assert event_facts.answer('Where?', event) == "It's in Yorktown, VA; the venue is TBA."
+
+
+@pytest.mark.parametrize(
+    ('answer', 'field', 'ok'),
+    [
+        (
+            'A half-day of talks on machine learning.',
+            'A half-day of talks and labs on machine learning.',
+            True,
+        ),
+        ('Registration costs 45 dollars.', 'Free; register online.', False),
+        ('It is at 9 AM.', 'Saturday at 9 AM', True),
+        ('Joe caters the lunch.', 'A half-day of talks and labs.', False),
+        ('', 'anything', False),
+    ],
+)
+def test_grounded_checks_the_answer_against_the_cited_field(answer, field, ok):
+    assert event_facts.grounded(answer, field) is ok
+
+
+def test_words_from_the_question_may_be_repeated_in_the_answer():
+    assert (
+        event_facts.grounded('Pizza is not mentioned here.', 'Free; register online.', 'pizza?')
+        is False
+    )
+    assert event_facts.grounded('Registration is free online.', 'Free; register online.') is True
