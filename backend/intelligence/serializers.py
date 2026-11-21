@@ -21,8 +21,18 @@ class EventSerializer(serializers.Serializer):
     title = serializers.CharField()
     date = serializers.DateField()
     time = serializers.CharField()
+    duration = serializers.CharField()
     location = serializers.CharField()
+    venue = serializers.CharField()
+    cost = serializers.CharField()
+    format = serializers.CharField()
     focus = serializers.CharField()
+    audience = serializers.CharField()
+    prerequisites = serializers.CharField()
+    registration = serializers.CharField()
+    speakers = serializers.CharField()
+    description = serializers.CharField()
+    agenda = serializers.ListField(child=serializers.CharField())
     key_topics = serializers.ListField(child=serializers.CharField())
 
 
@@ -41,6 +51,10 @@ class EventRecommendationSerializer(serializers.Serializer):
 class ChatExchangeSerializer(serializers.Serializer):
     question = serializers.CharField()
     answer = serializers.CharField()
+    source = serializers.ChoiceField(
+        choices=['model', 'facts', 'unknown'],
+        help_text="Only 'model' answers use up one of the student's questions.",
+    )
 
 
 class EventChatSerializer(serializers.Serializer):

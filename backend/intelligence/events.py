@@ -213,3 +213,40 @@ def student_gaps(profile, limit=8):
             gaps[skill['label']] = max(gaps.get(skill['label'], 0.0), room_to_grow(skill))
     ranked = sorted(gaps.items(), key=lambda item: (-item[1], item[0]))
     return [{'label': label, 'weight': round(weight, 4)} for label, weight in ranked[:limit]]
+
+
+# Every fact the chat model may answer from, in the order it sees them. The
+# chat schema's `found_in` is one of these (or 'none'), so an answer has to
+# point at a field that exists.
+FIELD_LABELS = {
+    'title': 'Title',
+    'date': 'Date',
+    'time': 'Time',
+    'duration': 'Duration',
+    'location': 'City',
+    'venue': 'Venue',
+    'cost': 'Cost',
+    'format': 'Format',
+    'focus': 'Focus',
+    'audience': 'Audience',
+    'prerequisites': 'Prerequisites',
+    'registration': 'Registration',
+    'speakers': 'Speakers',
+    'description': 'Description',
+    'agenda': 'Agenda',
+    'key_topics': 'Key topics',
+}
+
+
+def details_text(event):
+    """Every field in FIELD_LABELS as 'Label (field_name): value' lines - what
+    the chat model is allowed to answer from."""
+    lines = []
+    for field, label in FIELD_LABELS.items():
+        value = event.get(field)
+        if not value:
+            continue
+        if isinstance(value, list):
+            value = '; '.join(value)
+        lines.append(f'{label} ({field}): {value}')
+    return '\n'.join(lines)
