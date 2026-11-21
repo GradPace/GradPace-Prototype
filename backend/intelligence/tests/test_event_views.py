@@ -13,6 +13,7 @@ from django.core.cache import cache
 
 from accounts.factories import StudentProfileFactory, UserFactory
 from accounts.tests.helpers import login
+from intelligence import events as events_module
 from intelligence.factories import JobFactory, JobPostingFactory, JobSkillFactory
 from intelligence.models import EventChat
 
@@ -67,8 +68,8 @@ def prompt_sent(urlopen, call=0):
     return body, '\n'.join(m['content'] for m in body['messages'])
 
 
-def answer(text, on_topic=True):
-    return json.dumps({'on_topic': on_topic, 'answer': text})
+def answer(text, on_topic=True, found_in='description'):
+    return json.dumps({'on_topic': on_topic, 'found_in': found_in, 'answer': text})
 
 
 # --- /events/ ---
@@ -85,7 +86,7 @@ def test_event_list_is_upcoming_hampton_roads_events_only(client, student):
     events = response.json()
     assert len(events) == 12
     assert events[0]['title'].startswith('AI Horizons')  # today's event is still listed
-    assert {'id', 'title', 'date', 'time', 'location', 'focus', 'key_topics'} == set(events[0])
+    assert {'id', *events_module.FIELD_LABELS} == set(events[0])
     assert not any('Richmond' in e['location'] or 'NC' in e['location'] for e in events)
 
 
@@ -242,7 +243,11 @@ def test_chat_answers_stores_the_exchange_and_counts_it(client, student):
     assert response.status_code == 200
     assert response.json() == {
         'exchanges': [
-            {'question': 'What will I learn?', 'answer': 'SQL schema design and query tuning.'}
+            {
+                'question': 'What will I learn?',
+                'answer': 'SQL schema design and query tuning.',
+                'source': 'model',
+            }
         ],
         'chats_remaining': 2,
         'max_chats': 3,
@@ -414,7 +419,7 @@ def test_an_off_topic_question_gets_the_fixed_refusal_and_uses_a_question(client
 
 
 def test_on_topic_must_be_literally_true(client, student):
-    with model(json.dumps({'on_topic': 'yes', 'answer': 'Leaked.'})):
+    with model(json.dumps({'on_topic': 'yes', 'found_in': 'description', 'answer': 'Leaked.'})):
         response = ask(client, student)
 
     assert (
@@ -446,7 +451,11 @@ def test_earlier_exchanges_are_replayed_wrapped_too(client, student):
     roles = [m['role'] for m in body['messages']]
     assert roles == ['system', 'user', 'assistant', 'user']
     assert body['messages'][1]['content'].startswith('<question>First?</question>')
-    assert json.loads(body['messages'][2]['content']) == {'on_topic': True, 'answer': 'One.'}
+    assert json.loads(body['messages'][2]['content']) == {
+        'on_topic': True,
+        'found_in': 'description',
+        'answer': 'One.',
+    }
 
 
 def test_a_null_byte_in_a_question_is_rejected_outright(client, student):
@@ -455,3 +464,81 @@ def test_a_null_byte_in_a_question_is_rejected_outright(client, student):
 
     assert response.status_code == 400
     assert urlopen.call_count == 0
+
+
+# --- plain facts, and "not in the details" ---
+
+
+def test_a_plain_fact_question_is_answered_from_the_data_without_the_model(client, student):
+    with model(answer('should not be used')) as urlopen:
+        response = ask(client, student, 'When is it and where?')
+
+    assert urlopen.call_count == 0
+    exchange = response.json()['exchanges'][0]
+    assert exchange['source'] == 'facts'
+    assert 'Saturday, December 19, 2026 at 1:30 PM EST' in exchange['answer']
+    assert 'Yorktown Waterfront Conference Center' in exchange['answer']
+    assert response.json()['chats_remaining'] == 3  # not used up
+
+
+def test_fact_questions_still_work_after_all_three_chats_are_used(client, student):
+    for _ in range(3):
+        EventChat.objects.create(user=student.user, event_id=DATACORE, question='Q', answer='A')
+
+    with model(answer('x')) as urlopen:
+        facts = ask(client, student, 'Is it free?')
+        open_question = ask(client, student, 'What will I learn?')
+
+    assert facts.status_code == 200
+    assert facts.json()['exchanges'][-1]['answer'] == 'Cost: Free.'
+    assert open_question.status_code == 429
+    assert urlopen.call_count == 0
+
+
+def test_a_question_mixing_a_fact_and_an_open_ask_goes_to_the_model(client, student):
+    with model(answer('SQL tuning, and it is free.')) as urlopen:
+        ask(client, student, 'Is it free and what will I learn?')
+
+    assert urlopen.call_count == 1
+
+
+def test_the_model_prompt_lists_every_event_field_and_its_name(client, student):
+    with model(answer('ok')) as urlopen:
+        ask(client, student)
+
+    body, text = prompt_sent(urlopen)
+    assert 'Venue (venue): Yorktown Waterfront Conference Center' in text
+    assert 'Cost (cost): Free' in text
+    assert 'Agenda (agenda): 1:30 Relational schema design; ' in text
+    schema = body['response_format']['json_schema']['schema']
+    assert 'venue' in schema['properties']['found_in']['enum']
+    assert 'none' in schema['properties']['found_in']['enum']
+    assert list(schema['properties']) == ['on_topic', 'found_in', 'answer']
+
+
+def test_not_in_the_details_gets_a_fixed_reply_and_is_not_counted(client, student):
+    with model(answer('Lunch will be catered by Joe.', found_in='none')):
+        response = ask(client, student, 'Is lunch provided?')
+
+    exchange = response.json()['exchanges'][0]
+    assert exchange['source'] == 'unknown'
+    assert exchange['answer'] == "That isn't in the event details, so I can't say."
+    assert 'Joe' not in json.dumps(response.json())
+    assert response.json()['chats_remaining'] == 3
+
+
+def test_a_found_in_outside_the_schema_is_503_and_not_saved(client, student):
+    with model(answer('Made it up.', found_in='parking')):
+        response = ask(client, student, 'Is lunch provided?')
+
+    assert response.status_code == 503
+    assert EventChat.objects.count() == 0
+
+
+def test_the_model_answer_is_kept_and_counted_when_it_names_a_field(client, student):
+    with model(answer('The agenda has three sessions.', found_in='agenda')):
+        response = ask(client, student, 'Is lunch provided?')
+
+    assert response.json()['exchanges'][0]['source'] == 'model'
+    assert EventChat.objects.get().found_in == 'agenda'
+    assert response.json()['chats_remaining'] == 2
