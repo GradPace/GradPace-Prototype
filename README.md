@@ -235,6 +235,7 @@ instead - both are committed, so keep real secrets out of them.
 - [frontend/README.md](frontend/README.md) - frontend setup, env vars, deploying
 - [backend/docs/schema.md](backend/docs/schema.md) - auto-generated ER diagram of the accounts app
 - [backend/docs/surveys-api.md](backend/docs/surveys-api.md) - Alumni Survey endpoint (who can submit, fields, errors)
+- [backend/docs/alumni-conversion-api.md](backend/docs/alumni-conversion-api.md) - converting a student to alumni (graduation date, rules, errors)
 
 ---
 

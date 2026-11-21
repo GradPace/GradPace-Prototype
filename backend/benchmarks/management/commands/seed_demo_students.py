@@ -18,6 +18,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from accounts import roles
 from accounts.models import Role, Skill, StudentProfile
 from benchmarks.job_benchmark import get_job
 from benchmarks.scoring import score_student
@@ -152,7 +153,7 @@ class Command(BaseCommand):
             jobs[student['email']] = job
 
         password = options['password'] or secrets.token_urlsafe(12)
-        student_role = Role.objects.get(role_name='student')
+        student_role = Role.objects.get(role_name=roles.STUDENT)
 
         with transaction.atomic():
             results = [

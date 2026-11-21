@@ -4,8 +4,9 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import IsAlumni
+
 from .models import AlumniSurveyResponse
-from .permissions import IsAlumni
 from .serializers import AlumniSurveyResponseSerializer
 
 ALREADY_SUBMITTED = {'detail': 'Survey already submitted.'}

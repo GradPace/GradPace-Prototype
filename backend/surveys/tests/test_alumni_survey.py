@@ -1,10 +1,10 @@
 import pytest
 
-from accounts.factories import RoleFactory, StudentProfileFactory, UserFactory
+from accounts.factories import AlumniUserFactory, RoleFactory, StudentProfileFactory, UserFactory
 from accounts.tests.helpers import login
 from benchmarks.catalog import skill_catalog
 
-from ..factories import AlumniSurveyResponseFactory, AlumniUserFactory
+from ..factories import AlumniSurveyResponseFactory
 from ..models import AlumniSurveyResponse
 
 URL = '/api/survey/alumni/'
@@ -48,7 +48,7 @@ def post(client, user, data):
     return client.post(URL, data, content_type='application/json', **auth(client, user))
 
 
-# --- Access (FR-01) --------------------------------------------------------
+# Access
 
 
 @pytest.mark.django_db
@@ -88,7 +88,7 @@ def test_other_roles_cannot_submit(client, payload, role):
     assert response.status_code == 403
 
 
-# --- Submitting (FR-02, FR-04) ----------------------------------------------
+# Submitting
 
 
 @pytest.mark.django_db
@@ -159,7 +159,7 @@ def test_get_returns_own_response(client):
     assert response.json()['current_job_title'] == 'Software Engineer'
 
 
-# --- Validation (FR-03) ------------------------------------------------------
+# Validation
 
 
 @pytest.mark.django_db
@@ -266,3 +266,25 @@ def test_suggested_skills_are_trimmed(client, payload):
 
     assert response.status_code == 201
     assert AlumniSurveyResponse.objects.get().suggested_skills == ['Rust']
+
+
+# With alumni conversion
+
+
+@pytest.mark.django_db
+def test_student_can_take_survey_after_converting(client, payload):
+    student = StudentProfileFactory().user
+    headers = auth(client, student)
+
+    before = client.post(URL, payload, content_type='application/json', **headers)
+    client.post(
+        '/api/auth/convert-to-alumni/',
+        {'graduation_date': '2025-05-10'},
+        content_type='application/json',
+        **headers,
+    )
+    after = client.post(URL, payload, content_type='application/json', **headers)
+
+    assert before.status_code == 403
+    assert after.status_code == 201
+    assert AlumniSurveyResponse.objects.get().user == student

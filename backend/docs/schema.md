@@ -62,6 +62,7 @@ erDiagram
     AlumniProfile {
         UUIDField id PK
         UUIDField user_id FK, UK
+        DateField graduation_date
         DateTimeField updated_at
     }
     AdminProfile {

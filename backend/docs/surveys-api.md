@@ -12,8 +12,10 @@ An interactive version is at `http://localhost:8000/api/docs/` under **survey**.
 ## Who can take it
 
 Only users whose role is `alumni` (`GET /api/auth/me/` returns `"role": "alumni"`).
-Everyone else gets **403**. This endpoint doesn't decide who is an alum. The
-role is set elsewhere (currently by an admin).
+Everyone else gets **403**. Students get the alumni role by converting with
+`POST /api/auth/convert-to-alumni/` (see
+[alumni-conversion-api.md](alumni-conversion-api.md)). The survey works on
+their very next request after converting, without logging in again.
 
 Each alum can submit the survey **once**, and the submission is final.
 

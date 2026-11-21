@@ -1,12 +1,8 @@
 import factory
 
-from accounts.factories import RoleFactory, UserFactory
+from accounts.factories import AlumniUserFactory
 
 from .models import AlumniSurveyResponse
-
-
-class AlumniUserFactory(UserFactory):
-    role = factory.SubFactory(RoleFactory, role_name='alumni')
 
 
 class AlumniSurveyResponseFactory(factory.django.DjangoModelFactory):

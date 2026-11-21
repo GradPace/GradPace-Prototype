@@ -18,6 +18,11 @@ urlpatterns = [
     ),
     path('me/', views.MeView.as_view(), name='me'),
     path('profile/', views.ProfileView.as_view(), name='profile'),
+    path(
+        'convert-to-alumni/',
+        views.AlumniConversionView.as_view(),
+        name='convert-to-alumni',
+    ),
     path('profile/classes/', views.TakenClassListView.as_view(), name='class-list'),
     path('profile/classes/<uuid:pk>/', views.TakenClassDetailView.as_view(), name='class-detail'),
     path('profile/transcript/', views.TranscriptUploadView.as_view(), name='transcript-upload'),
