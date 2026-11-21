@@ -159,11 +159,12 @@ def gaps_text(gaps):
 
 def fallback_reason(event, gaps):
     """Used when the model is down - built from the same ranking."""
-    matched = [
-        g['label'] for g in gaps if events._words(g['label']) & events._words(event['focus'])
-    ]
+    matched = [g['label'] for g in events.gaps_covered(event, gaps)]
     if matched:
-        return f'It covers {event["focus"]}, which lines up with your skill gaps in {", ".join(matched)}.'
+        return (
+            f'It covers {event["focus"]}, which lines up with your skill gaps in '
+            f'{", ".join(matched)}.'
+        )
     return (
         f"It's the best upcoming match for you on timing and location, covering {event['focus']}."
     )

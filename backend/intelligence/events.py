@@ -47,8 +47,33 @@ FAR_DAYS = 90
 NEUTRAL_DISTANCE_SCORE = 0.5
 
 _STOPWORDS = frozenset(
-    'and or the of to a an in for with using use on at by as is are be from into '
-    'systems system application applications'.split()
+    [
+        'and',
+        'or',
+        'the',
+        'of',
+        'to',
+        'a',
+        'an',
+        'in',
+        'for',
+        'with',
+        'using',
+        'use',
+        'on',
+        'at',
+        'by',
+        'as',
+        'is',
+        'are',
+        'be',
+        'from',
+        'into',
+        'systems',
+        'system',
+        'application',
+        'applications',
+    ]
 )
 
 
@@ -114,6 +139,13 @@ def _words(text):
     return found
 
 
+def gaps_covered(event, gaps):
+    """The gaps (from student_gaps) whose words appear in the event's title,
+    focus or topics."""
+    event_words = _words(' '.join([event['title'], event['focus'], *event['key_topics']]))
+    return [g for g in gaps if _words(g['label']) & event_words]
+
+
 def skill_fit(event, gaps):
     """0-1: how much of the student's skill gap the event's focus and topics
     touch. gaps: [{'label': 'SQL', 'weight': 0.35}, ...] - weight is how much
@@ -122,9 +154,7 @@ def skill_fit(event, gaps):
     total = sum(g['weight'] for g in gaps)
     if not total:
         return 0.0
-    event_words = _words(' '.join([event['title'], event['focus'], *event['key_topics']]))
-    covered = sum(g['weight'] for g in gaps if _words(g['label']) & event_words)
-    return covered / total
+    return sum(g['weight'] for g in gaps_covered(event, gaps)) / total
 
 
 def date_score(event, today):
