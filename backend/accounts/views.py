@@ -8,7 +8,7 @@ from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from drf_spectacular.utils import extend_schema
-from rest_framework import generics, permissions, status
+from rest_framework import exceptions, generics, permissions, status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -17,9 +17,13 @@ from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, Ou
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from . import roles
 from .mail import send_in_background
-from .models import Certificate, Skill, StudentProfile, TakenClass
+from .models import AlumniProfile, Certificate, Role, Skill, StudentProfile, TakenClass
+from .permissions import IsStudent
 from .serializers import (
+    AlumniConversionResultSerializer,
+    AlumniConversionSerializer,
     CertificateSerializer,
     LoginSerializer,
     LogoutSerializer,
@@ -232,8 +236,9 @@ class ProfileView(APIView):
     )
     def patch(self, request):
         """Partially update the caller's student profile (name, major, uni,
-        location, target_job, graduated). student_id is not editable here - 404 if no
-        profile exists yet."""
+        location, target_job). student_id is not editable here, and graduated
+        only changes through /convert-to-alumni/ - 404 if no profile exists
+        yet."""
         try:
             profile = request.user.student_profile
         except StudentProfile.DoesNotExist:
@@ -242,6 +247,63 @@ class ProfileView(APIView):
         serializer.is_valid(raise_exception=True)
         profile = serializer.save()
         return Response(StudentProfileSerializer(profile).data)
+
+
+class AlumniConversionView(APIView):
+    """Students only (403 otherwise, which also blocks converting twice).
+    Converts the caller to an alum. Needs a StudentProfile
+    (404 without one, like ProfileView).
+
+    The request itself is the confirmation. The frontend asks "are you
+    sure?" before sending it. Nothing on the account is deleted: the
+    StudentProfile, classes, skills and certificates all stay."""
+
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    @extend_schema(
+        request=AlumniConversionSerializer, responses={200: AlumniConversionResultSerializer}
+    )
+    def post(self, request):
+        """Convert to alumni. graduation_date is required and can't be in
+        the future. Changes the role to alumni, marks the profile as
+        graduated and saves the date on the user's AlumniProfile."""
+        try:
+            profile = request.user.student_profile
+        except StudentProfile.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        serializer = AlumniConversionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        graduation_date = serializer.validated_data['graduation_date']
+
+        with transaction.atomic():
+            # IsStudent ran before this transaction, so check the role again
+            # with the user's row locked. If two conversions arrive at once
+            # (a double-clicked button), the second waits here until the
+            # first commits, then sees the alumni role and gets a 403 rather
+            # than a second 200 that overwrites graduation_date. The lock
+            # only exists on Postgres (prod). SQLite ignores it.
+            user = User.objects.select_for_update().get(pk=request.user.pk)
+            if user.role is None or user.role.role_name != roles.STUDENT:
+                raise exceptions.PermissionDenied(IsStudent.message)
+
+            # Seeded by migration 0002_seed_roles.
+            user.role = Role.objects.get(role_name=roles.ALUMNI)
+            user.save(update_fields=['role'])
+            profile.graduated = True
+            profile.save(update_fields=['graduated', 'updated_at'])
+            # update_or_create: an alumni profile made by hand in the admin
+            # gets its date filled in, rather than a second one failing on
+            # the OneToOne.
+            AlumniProfile.objects.update_or_create(
+                user=user, defaults={'graduation_date': graduation_date}
+            )
+
+        return Response(
+            AlumniConversionResultSerializer(
+                {'role': roles.ALUMNI, 'graduation_date': graduation_date}
+            ).data
+        )
 
 
 class StudentOwnedMixin:

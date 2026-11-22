@@ -1,7 +1,10 @@
+import datetime
+
 import factory
 from django.contrib.auth import get_user_model
 
-from .models import Certificate, Role, Skill, StudentProfile, TakenClass
+from . import roles
+from .models import AlumniProfile, Certificate, Role, Skill, StudentProfile, TakenClass
 
 User = get_user_model()
 
@@ -13,7 +16,7 @@ class RoleFactory(factory.django.DjangoModelFactory):
         model = Role
         django_get_or_create = ('role_name',)
 
-    role_name = 'student'
+    role_name = roles.STUDENT
 
 
 class UserFactory(factory.django.DjangoModelFactory):
@@ -32,6 +35,19 @@ class UserFactory(factory.django.DjangoModelFactory):
         self.set_password(extracted or DEFAULT_PASSWORD)
         if create:
             self.save()
+
+
+class AlumniUserFactory(UserFactory):
+    role = factory.SubFactory(RoleFactory, role_name=roles.ALUMNI)
+
+
+class AlumniProfileFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = AlumniProfile
+        django_get_or_create = ('user',)
+
+    user = factory.SubFactory(AlumniUserFactory)
+    graduation_date = datetime.date(2025, 5, 10)
 
 
 class StudentProfileFactory(factory.django.DjangoModelFactory):

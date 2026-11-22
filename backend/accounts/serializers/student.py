@@ -48,7 +48,10 @@ class StudentProfileSerializer(serializers.ModelSerializer):
 
 class StudentProfileCreateSerializer(serializers.ModelSerializer):
     """Creates the caller's own profile - student_id is set once here and is
-    not editable afterwards (see StudentProfileUpdateSerializer)."""
+    not editable afterwards (see StudentProfileUpdateSerializer). No
+    graduated field: only alumni conversion sets it, together with the role
+    change, so the two can't disagree. A `graduated` key in the request is
+    ignored."""
 
     first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
     last_name = serializers.CharField(source='user.last_name', required=False, allow_blank=True)
@@ -64,7 +67,6 @@ class StudentProfileCreateSerializer(serializers.ModelSerializer):
             'uni',
             'location',
             'target_job',
-            'graduated',
         ]
 
     def create(self, validated_data):
@@ -80,7 +82,8 @@ class StudentProfileCreateSerializer(serializers.ModelSerializer):
 class StudentProfileUpdateSerializer(serializers.ModelSerializer):
     """Partial update of the caller's own profile. No student_id field -
     school-issued, not something a student can change themselves. No
-    readiness_score - computed, not self-reported."""
+    readiness_score - computed, not self-reported. No graduated - set by
+    alumni conversion only (see StudentProfileCreateSerializer)."""
 
     first_name = serializers.CharField(source='user.first_name', required=False, allow_blank=True)
     last_name = serializers.CharField(source='user.last_name', required=False, allow_blank=True)
@@ -88,7 +91,7 @@ class StudentProfileUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentProfile
-        fields = ['first_name', 'last_name', 'major', 'uni', 'location', 'target_job', 'graduated']
+        fields = ['first_name', 'last_name', 'major', 'uni', 'location', 'target_job']
 
     def update(self, instance, validated_data):
         user_data = validated_data.pop('user', {})
