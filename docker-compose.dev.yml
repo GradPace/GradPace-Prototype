@@ -68,8 +68,10 @@ services:
     image: ghcr.io/ggml-org/llama.cpp:server
     profiles: ["llm"]
     command:
-      - -hf
-      - google/gemma-4-E2B-it-qat-q4_0-gguf:Q4_0
+      - --hf-repo
+      - google/gemma-4-E2B-it-qat-q4_0-gguf
+      - --hf-file
+      - gemma-4-E2B_q4_0-it.gguf
       - --no-mmproj
     environment:
       - LLAMA_ARG_HOST=0.0.0.0
