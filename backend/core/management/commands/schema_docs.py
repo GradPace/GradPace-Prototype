@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 START = '<!-- schema:start -->'
 END = '<!-- schema:end -->'
-PROJECT_APPS = ('accounts', 'intelligence', 'benchmarks')
+PROJECT_APPS = ('accounts', 'intelligence', 'benchmarks', 'surveys')
 ON_DELETE = {
     'CASCADE': 'row deleted',
     'SET_NULL': 'FK set to NULL',

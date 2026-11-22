@@ -154,7 +154,7 @@ def test_profile_patch_updates_mutable_fields(client):
 
     response = client.patch(
         '/api/auth/profile/',
-        {'major': 'Physics', 'graduated': True},
+        {'major': 'Physics'},
         content_type='application/json',
         HTTP_AUTHORIZATION=f'Bearer {tokens["access"]}',
     )
@@ -162,10 +162,33 @@ def test_profile_patch_updates_mutable_fields(client):
     assert response.status_code == 200
     body = response.json()
     assert body['major'] == 'Physics'
-    assert body['graduated'] is True
     # Untouched fields survive a partial update.
     assert body['student_id'] == 'S1234567'
     assert body['uni'] == 'State University'
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('method', ['post', 'patch'])
+def test_profile_ignores_graduated(client, method):
+    """Only alumni conversion sets graduated, together with the role."""
+    user = UserFactory()
+    tokens = login(client, user)
+    headers = {'HTTP_AUTHORIZATION': f'Bearer {tokens["access"]}'}
+    if method == 'patch':
+        client.post(
+            '/api/auth/profile/', make_profile_payload(), content_type='application/json', **headers
+        )
+        payload = {'graduated': True}
+    else:
+        payload = make_profile_payload(graduated=True)
+
+    response = getattr(client, method)(
+        '/api/auth/profile/', payload, content_type='application/json', **headers
+    )
+
+    assert response.status_code in (200, 201)
+    assert response.json()['graduated'] is False
+    assert StudentProfile.objects.get(user=user).graduated is False
 
 
 @pytest.mark.django_db

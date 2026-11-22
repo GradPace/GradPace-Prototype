@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'accounts',
     'benchmarks',
     'intelligence',
+    'surveys',
 ]
 
 MIDDLEWARE = [
