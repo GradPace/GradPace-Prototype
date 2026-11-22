@@ -1,0 +1,50 @@
+name: Cancel stuck queued runs
+
+# A job that sits queued for a long time is almost always lost, not waiting
+# its turn. On 2026-11-21 one such job (a gradpace-build job that no runner
+# could pick up) kept the ARC pool starting and dropping runners for hours
+# until the org hit GitHub's 10,000-runner cap and all CI stopped (GP-94).
+# Cancelling a stuck job takes it out of the pool's demand and stops that.
+#
+# Deliberately on a GitHub-hosted runner: it has to work when our own
+# runners don't. It only touches this repo, with the repo's own token.
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      threshold_minutes:
+        description: Cancel runs with a job queued longer than this
+        default: '30'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  cancel-stuck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Cancel runs with a job queued too long
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          THIS_RUN: ${{ github.run_id }}
+          THRESHOLD_MIN: ${{ inputs.threshold_minutes || '30' }}
+        run: |
+          cutoff=$(( $(date +%s) - THRESHOLD_MIN * 60 ))
+          for status in queued in_progress; do
+            gh api --paginate "repos/$REPO/actions/runs?status=$status&per_page=100" \
+              --jq ".workflow_runs[] | select((.created_at | fromdateiso8601) < $cutoff) | [.id, .name] | @tsv" |
+            while IFS=$'\t' read -r id name; do
+              [ "$id" = "$THIS_RUN" ] && continue
+              # A rerun keeps the run's creation time, so judge by the job's.
+              stuck=$(gh api "repos/$REPO/actions/runs/$id/jobs?per_page=100" \
+                --jq "[.jobs[] | select(.status == \"queued\" and (.created_at | fromdateiso8601) < $cutoff)] | length")
+              if [ "${stuck:-0}" -gt 0 ]; then
+                echo "Cancelling run $id ($name): $stuck job(s) queued for over $THRESHOLD_MIN minutes"
+                gh run cancel "$id" --repo "$REPO" || echo "  could not cancel $id"
+              fi
+            done
+          done
