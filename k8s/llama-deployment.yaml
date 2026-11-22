@@ -42,8 +42,12 @@ spec:
         - name: llama
           image: ghcr.io/ggml-org/llama.cpp:server
           args:
-            - -hf
-            - google/gemma-4-E2B-it-qat-q4_0-gguf:Q4_0
+            # Name the file: the `repo:Q4_0` shorthand no longer matches this
+            # repo's gemma-4-E2B_q4_0-it.gguf, and the pod crash-looped.
+            - --hf-repo
+            - google/gemma-4-E2B-it-qat-q4_0-gguf
+            - --hf-file
+            - gemma-4-E2B_q4_0-it.gguf
             # Text only - skips the ~1 GB vision projector.
             - --no-mmproj
           env:

@@ -12,6 +12,7 @@ from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from .. import roles
 from ..models import Role
 from ..turnstile import TOKEN_FIELD, verify_turnstile
 
@@ -71,7 +72,7 @@ class RegisterSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         # Seeded by migration 0002_seed_roles.
-        student_role = Role.objects.get(role_name='student')
+        student_role = Role.objects.get(role_name=roles.STUDENT)
         try:
             # atomic: a failed insert mustn't break an enclosing transaction.
             with transaction.atomic():

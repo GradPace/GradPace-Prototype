@@ -113,10 +113,16 @@ class StudentProfile(models.Model):
 
 
 class AlumniProfile(models.Model):
-    """Placeholder - fields TBD beyond the pk/user link."""
+    """Created when a student converts to alumni (AlumniConversionView),
+    alongside the role change. Their StudentProfile and everything on it is
+    kept, so this only holds what's new about being an alum."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='alumni_profile')
+    # Entered by the student when converting. This is never in the future. Can be null
+    # only for alumni profiles made by hand in the admin before conversion
+    # existed; conversion always sets it.
+    graduation_date = models.DateField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
