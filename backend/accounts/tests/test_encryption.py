@@ -1,5 +1,7 @@
 """Encryption at rest (accounts/fields.py, migration 0005)."""
 
+import string
+
 import pytest
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
@@ -25,6 +27,18 @@ ENCRYPTED_FIELDS = [
 
 # Every Fernet token starts with this (base64 of its version byte + timestamp).
 FERNET_PREFIX = 'gAAAAA'
+
+
+BASE64_URL_CHARS = set(string.ascii_letters + string.digits + '-_=')
+
+
+def could_appear_by_chance(value):
+    """A Fernet token is ~100 random base64 characters, so a short value made
+    only of those characters ('A-') turns up inside one a few percent of the
+    time, even though it was encrypted. Checking for it would make the test
+    fail at random; the FERNET_PREFIX check already shows the column isn't
+    plaintext."""
+    return len(value) < 6 and set(value) <= BASE64_URL_CHARS
 
 
 def raw_value(model, pk, field_name):
@@ -58,7 +72,8 @@ def test_column_holds_ciphertext(factory, field_name, value):
     stored = raw_value(type(obj), obj.pk, field_name)
 
     assert stored.startswith(FERNET_PREFIX)
-    assert value not in stored
+    if not could_appear_by_chance(value):
+        assert value not in stored
 
 
 @pytest.mark.django_db
