@@ -1,0 +1,246 @@
+"""Event recommendations (prototype): the mock events in data/events.json,
+narrowed to REGION_LOCATIONS (Hampton Roads), ranked for a student by
+skill-gap fit, date and distance (places.py gives both ends coordinates). The
+ranking is plain code; the LLM only picks among the top few candidates and
+explains the pick (views.py), so it can't invent an event.
+
+    events.json ─> load_events() ─> rank_events(student gaps, location, today)
+                   (Hampton Roads)   skill fit 50% / date 25% / distance 25%
+"""
+
+import json
+import re
+from datetime import date
+from functools import lru_cache
+from pathlib import Path
+
+from django.utils.text import slugify
+
+from . import places
+
+EVENTS_PATH = Path(__file__).parent / 'data' / 'events.json'
+
+# The prototype only shows Hampton Roads events: any event whose `location`
+# isn't listed here is dropped. This is a filter on the event's own text,
+# separate from distance - to widen the region, add locations (or swap this
+# for a radius around a point).
+REGION_LOCATIONS = frozenset(
+    {
+        'Norfolk, VA',
+        'Virginia Beach, VA',
+        'Chesapeake, VA',
+        'Portsmouth, VA',
+        'Suffolk, VA',
+        'Hampton, VA',
+        'Newport News, VA',
+        'Williamsburg, VA',
+        'Yorktown, VA',
+        'Smithfield, VA',
+        'Gloucester, VA',
+        'Franklin, VA',
+    }
+)
+
+WEIGHT_SKILLS = 0.50
+WEIGHT_DATE = 0.25
+WEIGHT_DISTANCE = 0.25
+
+# Distance and date scores fall off linearly to 0 at these limits.
+FAR_MILES = 60.0
+FAR_DAYS = 90
+# Used when the student's location isn't a place we can find (places.lookup).
+NEUTRAL_DISTANCE_SCORE = 0.5
+
+_STOPWORDS = frozenset(
+    [
+        'and',
+        'or',
+        'the',
+        'of',
+        'to',
+        'a',
+        'an',
+        'in',
+        'for',
+        'with',
+        'using',
+        'use',
+        'on',
+        'at',
+        'by',
+        'as',
+        'is',
+        'are',
+        'be',
+        'from',
+        'into',
+        'systems',
+        'system',
+        'application',
+        'applications',
+    ]
+)
+
+
+def _city_of(location):
+    """'Norfolk, VA' -> 'norfolk'. Only the part before the comma."""
+    return location.split(',')[0].strip().casefold()
+
+
+@lru_cache(maxsize=1)
+def _all_events():
+    with EVENTS_PATH.open(encoding='utf-8') as events_file:
+        raw = json.load(events_file)
+    events = []
+    for event in raw:
+        place = places.lookup(event['location'])
+        if event['location'] not in REGION_LOCATIONS or place is None:
+            continue
+        events.append(
+            {
+                **event,
+                'id': slugify(event['title']),
+                'city': _city_of(event['location']),
+                'place': place,
+            }
+        )
+    return events
+
+
+def load_events():
+    """Every event in the region, in file (date) order. Each is the JSON
+    object plus `id` (slug of the title), `city` (lowercase) and `place` (its
+    places.Place, with coordinates)."""
+    return [dict(event) for event in _all_events()]
+
+
+def get_event(event_id):
+    return next((e for e in load_events() if e['id'] == event_id), None)
+
+
+def upcoming_events(today):
+    return [e for e in load_events() if date.fromisoformat(e['date']) >= today]
+
+
+def _words(text):
+    """Lowercase word set, minus filler, with a trailing plural 's' dropped
+    so 'databases' matches 'database'."""
+    found = set()
+    for word in re.findall(r'[a-z0-9+#]+', text.casefold()):
+        if word in _STOPWORDS:
+            continue
+        found.add(word[:-1] if len(word) > 3 and word.endswith('s') else word)
+    return found
+
+
+def gaps_covered(event, gaps):
+    """The gaps (from student_gaps) whose words appear in the event's title,
+    focus or topics."""
+    event_words = _words(' '.join([event['title'], event['focus'], *event['key_topics']]))
+    return [g for g in gaps if _words(g['label']) & event_words]
+
+
+def skill_fit(event, gaps):
+    """0-1: how much of the student's skill gap the event's focus and topics
+    touch. gaps: [{'label': 'SQL', 'weight': 0.35}, ...] - weight is how much
+    room to grow the skill has. A gap counts once if any of its words appear
+    in the event text; the score is the share of total gap weight covered."""
+    total = sum(g['weight'] for g in gaps)
+    if not total:
+        return 0.0
+    return sum(g['weight'] for g in gaps_covered(event, gaps)) / total
+
+
+def date_score(event, today):
+    days = (date.fromisoformat(event['date']) - today).days
+    return max(0.0, 1.0 - max(days, 0) / FAR_DAYS)
+
+
+def distance_miles(event, location):
+    """Miles from the student's place to the event, or None if their
+    location isn't one places.lookup can find."""
+    home = places.lookup(location)
+    if home is None:
+        return None
+    return places.miles_between(home, event['place'])
+
+
+def rank_events(gaps, location, today):
+    """Upcoming Hampton Roads events, best first. Each is the event plus
+    `score` (0-1), `distance_miles` (or None) and `skill_fit`. Ties go to the
+    sooner event."""
+    ranked = []
+    for event in upcoming_events(today):
+        fit = skill_fit(event, gaps)
+        miles = distance_miles(event, location)
+        distance = NEUTRAL_DISTANCE_SCORE if miles is None else max(0.0, 1.0 - miles / FAR_MILES)
+        score = (
+            WEIGHT_SKILLS * fit
+            + WEIGHT_DATE * date_score(event, today)
+            + WEIGHT_DISTANCE * distance
+        )
+        ranked.append(
+            {
+                **event,
+                'score': round(score, 4),
+                'skill_fit': round(fit, 4),
+                'distance_miles': None if miles is None else round(miles, 1),
+            }
+        )
+    ranked.sort(key=lambda e: (-e['score'], e['date']))
+    return ranked
+
+
+def student_gaps(profile, limit=8):
+    """The student's biggest skill gaps for their target job, as
+    [{'label': 'SQL', 'weight': room_to_grow}, ...] best first - the input
+    skill_fit() wants. Empty if they haven't picked a target job."""
+    # Imported here: benchmarks imports intelligence.models at load time.
+    from benchmarks.scoring import room_to_grow, score_student
+
+    if profile.target_job is None:
+        return []
+    result = score_student(profile, profile.target_job)
+    gaps = {}
+    for flagged in result['flagged_gaps']:
+        for skill in flagged['top_unmet_skills']:
+            gaps[skill['label']] = max(gaps.get(skill['label'], 0.0), room_to_grow(skill))
+    ranked = sorted(gaps.items(), key=lambda item: (-item[1], item[0]))
+    return [{'label': label, 'weight': round(weight, 4)} for label, weight in ranked[:limit]]
+
+
+# Every fact the chat model may answer from, in the order it sees them. The
+# chat schema's `found_in` is one of these (or 'none'), so an answer has to
+# point at a field that exists.
+FIELD_LABELS = {
+    'title': 'Title',
+    'date': 'Date',
+    'time': 'Time',
+    'duration': 'Duration',
+    'location': 'City',
+    'venue': 'Venue',
+    'cost': 'Cost',
+    'format': 'Format',
+    'focus': 'Focus',
+    'audience': 'Audience',
+    'prerequisites': 'Prerequisites',
+    'registration': 'Registration',
+    'speakers': 'Speakers',
+    'description': 'Description',
+    'agenda': 'Agenda',
+    'key_topics': 'Key topics',
+}
+
+
+def details_text(event):
+    """Every field in FIELD_LABELS as 'Label (field_name): value' lines - what
+    the chat model is allowed to answer from."""
+    lines = []
+    for field, label in FIELD_LABELS.items():
+        value = event.get(field)
+        if not value:
+            continue
+        if isinstance(value, list):
+            value = '; '.join(value)
+        lines.append(f'{label} ({field}): {value}')
+    return '\n'.join(lines)

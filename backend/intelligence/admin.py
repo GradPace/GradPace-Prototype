@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib import admin
 
-from .models import Job, JobPosting, JobSkill, validate_skills_belong_to_job
+from .models import EventChat, Job, JobPosting, JobSkill, validate_skills_belong_to_job
 
 
 class JobSkillInline(admin.TabularInline):
@@ -44,3 +44,9 @@ class JobPostingAdmin(admin.ModelAdmin):
     list_display = ['job', 'title', 'seniority', 'company']
     list_filter = ['seniority', 'job']
     filter_horizontal = ['skills']
+
+
+@admin.register(EventChat)
+class EventChatAdmin(admin.ModelAdmin):
+    list_display = ['user', 'event_id', 'created_at']
+    list_filter = ['event_id']
