@@ -32,12 +32,25 @@ function messageFromResponseBody(data: unknown): string {
 // T is the shape of a *successful* response's JSON - callers pass it as
 // apiFetch<{ access: string; refresh: string }> so the returned data
 // is typed instead of `unknown`, without loosening error handling above.
+// The access token only lasts an hour and nothing renews it. If the server says
+// 401 to a request that carried one, it is dead: drop it. Leaving it in
+// localStorage made /login (which treats any stored token as "logged in") send
+// the user straight back to /profile, whose 401 sent them to /login again, in a
+// loop that never settled.
+function dropDeadTokens(status: number, sentToken: boolean) {
+  if (status === 401 && sentToken) {
+    localStorage.removeItem('access')
+    localStorage.removeItem('refresh')
+  }
+}
+
 export async function apiFetch<T>(path: string, body: unknown, auth = false): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (auth) {
     const access = localStorage.getItem('access')
     if (access) headers.Authorization = `Bearer ${access}`
   }
+  const sentToken = Boolean(headers.Authorization)
 
   const res = await fetch(`${API_URL}${path}`, {
     method: 'POST',
@@ -48,6 +61,7 @@ export async function apiFetch<T>(path: string, body: unknown, auth = false): Pr
   // Read as text first, not res.json() directly - a non-JSON response (an
   // HTML error page, an empty body from a proxy/CORS failure, etc.) would
   // otherwise throw inside res.json() itself with no useful message at all.
+  dropDeadTokens(res.status, sentToken)
   const text = await res.text()
   let data: unknown = null
   if (text) {
@@ -71,6 +85,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     headers: access ? { Authorization: `Bearer ${access}` } : {},
   })
+  dropDeadTokens(res.status, Boolean(access))
   const data = await res.json().catch(() => null)
   if (!res.ok) throw new ApiError(res.status, data, messageFromResponseBody(data))
   return data as T
