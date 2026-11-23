@@ -40,4 +40,10 @@ urlpatterns = [
     ),
     path('profile/skills/', views.SkillListView.as_view(), name='skill-list'),
     path('profile/skills/<uuid:pk>/', views.SkillDetailView.as_view(), name='skill-detail'),
+    path('admin/users/', views.AdminUserListView.as_view(), name='admin-user-list'),
+    path(
+        'admin/users/<uuid:pk>/',
+        views.AdminUserDetailView.as_view(),
+        name='admin-user-detail',
+    ),
 ]
