@@ -65,3 +65,65 @@ class EventChatSerializer(serializers.Serializer):
 
 class EventChatRequestSerializer(serializers.Serializer):
     question = serializers.CharField(max_length=300, trim_whitespace=True)
+
+
+# --- Admin data health -----------------------------------------------------
+
+
+class JobTotalsSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    official = serializers.IntegerField()
+    generated = serializers.IntegerField()
+
+
+class SkillTotalsSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+
+
+class PostingTotalsSerializer(serializers.Serializer):
+    total = serializers.IntegerField()
+    generated = serializers.IntegerField()
+
+
+class CatalogTotalsSerializer(serializers.Serializer):
+    jobs = JobTotalsSerializer()
+    skills = SkillTotalsSerializer()
+    postings = PostingTotalsSerializer()
+
+
+class OccupationHealthSerializer(serializers.Serializer):
+    soc_code = serializers.CharField()
+    title = serializers.CharField()
+    source = serializers.CharField()
+    posting_count = serializers.IntegerField()
+    skill_count = serializers.IntegerField()
+    median_annual_wage = serializers.IntegerField(allow_null=True)
+    few_postings = serializers.BooleanField(help_text='Fewer than 3 postings.')
+    missing_wage = serializers.BooleanField()
+    no_skills = serializers.BooleanField()
+
+
+class UnrecognizedLocationSerializer(serializers.Serializer):
+    location = serializers.CharField()
+    count = serializers.IntegerField()
+
+
+class StudentLocationsSerializer(serializers.Serializer):
+    profiles = serializers.IntegerField()
+    with_location = serializers.IntegerField()
+    recognized = serializers.IntegerField(help_text='Locations places.lookup can place.')
+    unrecognized = serializers.IntegerField()
+    unrecognized_values = UnrecognizedLocationSerializer(
+        many=True, help_text='Most common first, at most 20.'
+    )
+
+
+class DataHealthSerializer(serializers.Serializer):
+    totals = CatalogTotalsSerializer()
+    catalog_updated_at = serializers.DateTimeField(
+        allow_null=True,
+        help_text='Latest updated_at across jobs, skills and postings - when the catalog '
+        'was last seeded or edited. Null when it is empty.',
+    )
+    occupations = OccupationHealthSerializer(many=True)
+    student_locations = StudentLocationsSerializer()

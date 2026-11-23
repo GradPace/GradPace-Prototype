@@ -16,4 +16,5 @@ urlpatterns = [
         name='event_recommendation',
     ),
     path('events/<slug:event_id>/chat/', views.EventChatView.as_view(), name='event_chat'),
+    path('admin/data-health/', views.DataHealthView.as_view(), name='admin_data_health'),
 ]
