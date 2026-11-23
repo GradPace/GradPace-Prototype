@@ -1,7 +1,7 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar/Navbar";
-import { ApiError, apiGet } from "../../lib/api/api";
+import { ApiError, apiFetch, apiGet } from "../../lib/api/api";
 
 // GET /api/intelligence/events/ - one upcoming event (EventSerializer)
 type Event = {
@@ -34,8 +34,37 @@ type Recommendation = {
   chats_remaining: number;
 };
 
+// GET/POST /api/intelligence/events/<id>/chat/ (EventChatSerializer)
+type ChatExchange = {
+  question: string;
+  answer: string;
+  // Only 'model' answers use up a question. 'facts' = answered straight from
+  // the event data, 'unknown' = the details don't say.
+  source: "model" | "facts" | "unknown";
+};
+
+type ChatState = {
+  exchanges: ChatExchange[];
+  chats_remaining: number;
+  max_chats: number;
+};
+
 // The backend's 404 body when the student hasn't set up a profile yet
 const NO_PROFILE_DETAIL = "No student profile yet.";
+
+// Matches EventChatRequestSerializer's max_length
+const MAX_QUESTION_CHARS = 300;
+
+// The `detail` of an error response - the backend's own message. Used instead
+// of err.message, which also tacks on other fields (e.g. the 429's `code`).
+function errorDetail(err: unknown, fallback: string): string {
+  if (err instanceof ApiError) {
+    const data = err.data as { detail?: unknown } | null;
+    if (typeof data?.detail === "string") return data.detail;
+    return err.message;
+  }
+  return fallback;
+}
 
 export default function EventsPage() {
   const navigate = useNavigate();
@@ -179,7 +208,7 @@ function RecommendedEvent() {
 }
 
 // "View details" toggle that expands an event card in place, showing every
-// field the list leaves out. The chat box will go at the bottom of this later.
+// field the list leaves out, with the event's chat at the bottom.
 function EventDetails({ event }: { event: Event }) {
   const [open, setOpen] = useState(false);
   const detailsId = useId(); // unique even when the same event is shown twice
@@ -227,7 +256,136 @@ function EventDetails({ event }: { event: Event }) {
           {event.key_topics.length > 0 && (
             <DetailList title="Key topics" items={event.key_topics} />
           )}
+
+          {/* Mounted only while open, so a card's chat loads on first view */}
+          <EventChat eventId={event.id} />
         </div>
+      )}
+    </div>
+  );
+}
+
+// Ask questions about one event. The backend answers plain facts (date,
+// place, cost...) from the event data for free; anything else goes to the
+// AI, up to max_chats questions per student per event.
+function EventChat({ eventId }: { eventId: string }) {
+  const chatUrl = `/api/intelligence/events/${eventId}/chat/`;
+  const inputId = useId();
+  const [chat, setChat] = useState<ChatState | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [question, setQuestion] = useState("");
+  const [pending, setPending] = useState<string | null>(null); // question being answered
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    apiGet<ChatState>(chatUrl)
+      .then(setChat)
+      .catch((err) =>
+        setLoadError(errorDetail(err, "Could not load the chat.")),
+      );
+  }, [chatUrl]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const asked = question.trim();
+    if (!asked || pending) return; // blank, or still waiting on the last one
+
+    setPending(asked);
+    setSendError(null);
+    try {
+      // Every success returns the whole chat, so just replace it.
+      setChat(await apiFetch<ChatState>(chatUrl, { question: asked }, true));
+      setQuestion("");
+    } catch (err) {
+      // The question stays in the box so the student can try again.
+      setSendError(
+        errorDetail(err, "Could not send your question. Please try again."),
+      );
+    } finally {
+      setPending(null);
+    }
+  }
+
+  return (
+    <div className="mt-6 border-t border-line pt-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-sm font-semibold text-ink">
+          Ask about this event
+        </h3>
+        {chat && (
+          <span className="text-xs text-slate">
+            {chat.chats_remaining} of {chat.max_chats} questions left
+          </span>
+        )}
+      </div>
+
+      {loadError && <p className="mt-3 text-sm text-pink">{loadError}</p>}
+      {!chat && !loadError && (
+        <p className="mt-3 text-sm text-slate">Loading chat...</p>
+      )}
+
+      {chat && (
+        <>
+          {(chat.exchanges.length > 0 || pending) && (
+            <ul className="mt-3 flex flex-col gap-3" aria-live="polite">
+              {chat.exchanges.map((exchange, index) => (
+                <li key={index} className="flex flex-col gap-1 text-sm">
+                  <p className="self-end rounded-xl bg-blue px-3 py-2 text-white">
+                    {exchange.question}
+                  </p>
+                  <p className="self-start rounded-xl bg-canvas px-3 py-2 text-ink">
+                    {exchange.answer}
+                  </p>
+                  {exchange.source === "facts" && (
+                    <span className="self-start text-xs text-slate">
+                      From the event details - doesn&apos;t use a question
+                    </span>
+                  )}
+                </li>
+              ))}
+              {pending && (
+                <li className="flex flex-col gap-1 text-sm">
+                  <p className="self-end rounded-xl bg-blue px-3 py-2 text-white">
+                    {pending}
+                  </p>
+                  <p className="self-start px-3 py-2 text-slate">Thinking...</p>
+                </li>
+              )}
+            </ul>
+          )}
+
+          {chat.chats_remaining === 0 && (
+            <p className="mt-3 text-xs text-slate">
+              You&apos;ve used all your questions for this event. You can still
+              ask about the date, time, place or cost.
+            </p>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
+            <label htmlFor={inputId} className="sr-only">
+              Your question
+            </label>
+            <input
+              id={inputId}
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              maxLength={MAX_QUESTION_CHARS}
+              disabled={pending !== null}
+              placeholder="e.g. Is this good for a beginner?"
+              className="min-w-0 flex-1 rounded-md border border-line bg-transparent px-3 py-2 text-sm text-ink outline-none focus:border-blue disabled:opacity-60"
+            />
+            <button
+              type="submit"
+              disabled={pending !== null || !question.trim()}
+              className="rounded-md bg-blue px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {pending ? "Sending..." : "Ask"}
+            </button>
+          </form>
+
+          {sendError && <p className="mt-2 text-sm text-pink">{sendError}</p>}
+        </>
       )}
     </div>
   );
