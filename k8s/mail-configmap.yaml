@@ -11,3 +11,18 @@ data:
   DKIM_AUTOGENERATE: "true"
   DKIM_SELECTOR: "relay"
   MYNETWORKS: "10.42.0.0/16 10.43.0.0/16 127.0.0.0/8"
+---
+# rspamd's dkim_signing looks a message's domain up in the selector/path maps
+# by its registrable domain (use_esld, default true), so mail from
+# noreply@gradpace.steyaert.xyz was looked up as "steyaert.xyz", found nothing,
+# and was signed with the default selector "dkim" instead of "relay" (and
+# failed to verify). The maps boky/postfix generates at start are keyed by the
+# full domain gradpace.steyaert.xyz, so match on that.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mail-rspamd-dkim
+  namespace: gradpace
+data:
+  dkim_signing.conf: |
+    use_esld = false;
