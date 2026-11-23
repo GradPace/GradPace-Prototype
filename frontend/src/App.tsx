@@ -10,6 +10,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage/VerifyEmailPage";
 import CheckEmailPage from "./pages/CheckEmailPage/CheckEmailPage";
+import EventsPage from "./pages/EventsPage/EventsPage";
 import RequireVerifiedEmail from "./components/RequireVerifiedEmail/RequireVerifiedEmail";
 {
   /* Routes is what nests <Route>s
@@ -35,6 +36,14 @@ function App() {
         element={
           <RequireVerifiedEmail>
             <ProfilePage />
+          </RequireVerifiedEmail>
+        }
+      />
+      <Route
+        path="/events"
+        element={
+          <RequireVerifiedEmail>
+            <EventsPage />
           </RequireVerifiedEmail>
         }
       />
