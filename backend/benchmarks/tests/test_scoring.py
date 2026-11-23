@@ -2,8 +2,14 @@
 
 import pytest
 
-from ..job_benchmark import BenchmarkSkill
-from ..scoring import proficiency_level, readiness, score_against_benchmark
+from ..job_benchmark import BenchmarkSkill, SkillGroup
+from ..scoring import (
+    proficiency_level,
+    readiness,
+    score_against_benchmark,
+    score_groups,
+    singleton_groups,
+)
 
 
 def skill(name, weight, skill_type='software'):
@@ -141,3 +147,70 @@ def test_top_unmet_skills_lead_with_the_biggest_gain():
 
     unmet = [s['name'] for s in result['flagged_gaps'][0]['top_unmet_skills']]
     assert unmet == ['C#', 'Structured query language SQL']
+
+
+# --- skill groups (score_groups) ---
+
+
+def group(key, tools, weight=1.0):
+    return SkillGroup(key=key, name=key.title(), tools=tuple(tools), weight=weight)
+
+
+def test_group_earns_credit_of_the_best_tool():
+    frontend = group('frontend', ['React', 'Google Angular'])
+
+    points, [detail] = score_groups(
+        {'React': 'beginner', 'Google Angular': 'advanced'}, [frontend], points=50
+    )
+
+    assert points == 37.5  # advanced = 3/4 of 50
+    assert detail['best_tool'] == 'Angular'
+    assert detail['level'] == 'advanced'
+
+
+def test_second_tool_in_a_group_adds_nothing():
+    frontend = group('frontend', ['React', 'Google Angular'])
+    one, _ = score_groups({'React': 'expert'}, [frontend])
+    both, _ = score_groups({'React': 'expert', 'Google Angular': 'expert'}, [frontend])
+    assert one == both == 100.0
+
+
+def test_groups_split_points_by_weight():
+    groups = [group('language', ['Python'], 0.75), group('cloud', ['AWS'], 0.25)]
+
+    _, details = score_groups({}, groups, points=50)
+
+    assert [d['out_of'] for d in details] == [37.5, 12.5]
+    assert all(d['points'] == 0 and d['best_tool'] is None for d in details)
+
+
+@pytest.mark.parametrize('typed', ['Structured query language SQL', 'SQL', '  sql '])
+def test_group_tool_matches_by_name_or_label(typed):
+    databases = group('databases', ['Structured query language SQL'])
+    assert score_groups({typed: 'expert'}, [databases])[0] == 100.0
+
+
+def test_level_credit_can_be_swapped_out():
+    def three_levels(text):
+        return text.title(), {'beginner': 0.25, 'intermediate': 0.6, 'expert': 1.0}[text]
+
+    points, _ = score_groups(
+        {'Python': 'intermediate'}, [group('language', ['Python'])], level_credit=three_levels
+    )
+    assert points == 60.0
+
+
+def test_singleton_groups_score_like_ungrouped_skills():
+    """One group per skill is exactly score_against_benchmark's math, so the
+    two scoring paths can't drift apart."""
+    skills = [
+        BenchmarkSkill('Python', 'software', 0.8),
+        BenchmarkSkill('Git', 'software', 0.5),
+        BenchmarkSkill('Linux', 'software', 0.2),
+    ]
+    student = {'Python': 'advanced', 'git': 'beginner'}
+
+    profile, _, _ = score_against_benchmark(student, skills)
+    points, _ = score_groups(student, singleton_groups(skills), points=100)
+
+    assert points == pytest.approx(profile['software'], abs=0.01)

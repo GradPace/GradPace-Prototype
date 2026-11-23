@@ -27,7 +27,7 @@ from collections import Counter
 
 from .algorithms import calculate_benchmark_score
 from .catalog import label_for
-from .job_benchmark import build_job_benchmark
+from .job_benchmark import SkillGroup, build_job_benchmark
 
 # accounts.models.Skill stores proficiency as text. Readiness treats it as
 # 1-4, and a student earns level / MAX_LEVEL of a skill's weight:
@@ -115,6 +115,64 @@ def score_against_benchmark(student_skills, benchmark_skills):
     profile = {dim: round(100.0 * earned[dim] / possible[dim], 2) for dim in possible}
     weights = {dim: possible[dim] / total for dim in possible} if total else {}
     return profile, weights, details
+
+
+def main_level_credit(text):
+    """Skill.proficiency_level -> (label, share of a skill's weight earned),
+    on the 1-4 scale above. The default for score_groups()."""
+    return text or 'unrated', proficiency_credit(proficiency_level(text))
+
+
+def singleton_groups(benchmark_skills):
+    """One single-tool SkillGroup per benchmark skill. Scoring these with
+    score_groups() is the same as scoring the skills one by one - which is
+    why grouped and ungrouped benchmarks can share one scoring path."""
+    return [SkillGroup(s.name, s.name, (s.name,), s.weight) for s in benchmark_skills]
+
+
+def score_groups(student_skills, groups, points=100.0, level_credit=main_level_credit):
+    """Score skill GROUPS (see job_benchmark.SkillGroup). Pure - no database.
+
+    student_skills: {'Python': 'expert', ...} (Skill name -> proficiency text)
+    groups: [SkillGroup, ...]
+    points: what the groups are worth in total, split by weight
+    level_credit: proficiency text -> (label, credit 0-1)
+
+    A group earns its points x the credit of the student's best tool in it,
+    so a second tool in the same group adds nothing. A tool matches on its
+    O*NET name or its display label ('SQL'), ignoring case and spaces.
+
+    Returns (points earned, one dict per group, in order)."""
+    have = {_key(name): text for name, text in student_skills.items()}
+    total_weight = sum(group.weight for group in groups)
+    earned_total = 0.0
+    details = []
+
+    for group in groups:
+        possible = points * group.weight / total_weight if total_weight else 0.0
+        best = None  # (credit, tool, level label)
+        for tool in group.tools:
+            text = have.get(_key(tool), have.get(_key(label_for(tool))))
+            if text is None:
+                continue
+            label, credit = level_credit(text)
+            if best is None or credit > best[0]:
+                best = (credit, tool, label)
+
+        earned = possible * best[0] if best else 0.0
+        earned_total += earned
+        details.append(
+            {
+                'key': group.key,
+                'name': group.name,
+                'points': round(earned, 2),
+                'out_of': round(possible, 2),
+                'best_tool': label_for(best[1]) if best else None,
+                'level': best[2] if best else None,
+                'options': [{'name': tool, 'label': label_for(tool)} for tool in group.tools],
+            }
+        )
+    return earned_total, details
 
 
 def room_to_grow(skill_detail):
