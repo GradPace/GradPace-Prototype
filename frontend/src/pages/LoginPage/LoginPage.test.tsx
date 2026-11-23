@@ -131,4 +131,17 @@ describe('LoginPage', () => {
     expect(navigateMock).not.toHaveBeenCalled()
     expect(localStorage.getItem('access')).toBeNull()
   })
+
+  it('links to the forgot password page', () => {
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: /forgot password/i })).toHaveAttribute(
+      'href',
+      '/forgot-password',
+    )
+  })
 })

@@ -104,6 +104,14 @@ export default function LoginPage() {
               />
             </label>
 
+            <p className="-mt-3 text-sm">
+              <Link
+                to="/forgot-password"
+                className="text-ink underline underline-offset-2 hover:text-pink"
+              >
+                Forgot password?
+              </Link>
+            </p>
             <Turnstile
               key={turnstileKey}
               action="login"
