@@ -199,3 +199,15 @@ class UserSerializer(serializers.Serializer):
     first_name = serializers.CharField(read_only=True)
     last_name = serializers.CharField(read_only=True)
     role = serializers.CharField(source='role.role_name', read_only=True, allow_null=True)
+    email_verified = serializers.BooleanField(read_only=True)
+
+
+class VerifyEmailSerializer(serializers.Serializer):
+    token = serializers.CharField(help_text='The token from the link emailed at registration.')
+
+
+class VerifyEmailResultSerializer(serializers.Serializer):
+    verified = serializers.BooleanField()
+    already_verified = serializers.BooleanField(
+        help_text='True when the account had already been verified before this request.'
+    )
