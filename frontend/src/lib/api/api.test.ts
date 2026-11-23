@@ -104,3 +104,47 @@ describe('apiGet', () => {
     })
   })
 })
+
+describe('expired login tokens', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('apiGet drops the stored tokens when the server answers 401', async () => {
+    localStorage.setItem('access', 'old')
+    localStorage.setItem('refresh', 'old-refresh')
+    mockFetchOnce(401, { detail: 'Given token not valid for any token type' })
+
+    await expect(apiGet('/api/auth/profile/')).rejects.toMatchObject({ status: 401 })
+
+    expect(localStorage.getItem('access')).toBeNull()
+    expect(localStorage.getItem('refresh')).toBeNull()
+  })
+
+  it('apiFetch drops the stored tokens on a 401 to an authenticated request', async () => {
+    localStorage.setItem('access', 'old')
+    localStorage.setItem('refresh', 'old-refresh')
+    mockFetchOnce(401, { detail: 'nope' })
+
+    await expect(apiFetch('/api/auth/verify-email/resend/', {}, true)).rejects.toMatchObject({
+      status: 401,
+    })
+
+    expect(localStorage.getItem('access')).toBeNull()
+  })
+
+  it('a 401 from login (wrong password, no token sent) leaves storage alone', async () => {
+    localStorage.setItem('access', 'other')
+    mockFetchOnce(401, { detail: 'No active account found with the given credentials' })
+
+    await expect(apiFetch('/api/auth/login/', { email: 'a@b.com', password: 'x' })).rejects.toMatchObject({
+      status: 401,
+    })
+
+    expect(localStorage.getItem('access')).toBe('other')
+  })
+})

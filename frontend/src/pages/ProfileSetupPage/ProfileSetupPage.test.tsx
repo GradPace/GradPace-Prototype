@@ -25,7 +25,7 @@ function stubMe(firstName: string | null) {
             status: 200,
             json: () => Promise.resolve({ first_name: firstName }),
           })
-        : Promise.resolve({ ok: false, status: 401, json: () => Promise.resolve(null) })
+        : Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve(null) })
     }
     return Promise.resolve({
       ok: true,
