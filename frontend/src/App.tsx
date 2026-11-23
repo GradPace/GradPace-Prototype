@@ -6,6 +6,8 @@ import ProfileSetupPage from "./pages/ProfileSetupPage/ProfileSetupPage";
 import ProfilePage from "./pages/ProfilePage/ProfilePage";
 import HowItWorksPage from "./pages/HowItWorksPage/HowItWorksPage";
 import FeaturesPage from "./pages/FeaturesPage/FeaturesPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage/VerifyEmailPage";
 {
   /* Routes is what nests <Route>s
@@ -22,6 +24,8 @@ function App() {
       <Route path="/profile" element={<ProfilePage />} />
       <Route path="/how-it-works" element={<HowItWorksPage />} />
       <Route path="/features" element={<FeaturesPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
     </Routes>
   );
