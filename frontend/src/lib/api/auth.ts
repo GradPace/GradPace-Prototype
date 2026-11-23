@@ -1,4 +1,5 @@
 import { apiFetch } from './api'
+import { rememberMe } from './me'
 
 export async function logout() {
   const refresh = localStorage.getItem('refresh')
@@ -10,5 +11,6 @@ export async function logout() {
   } finally {
     localStorage.removeItem('access')
     localStorage.removeItem('refresh')
+    rememberMe(null)
   }
 }

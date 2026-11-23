@@ -72,4 +72,12 @@ describe('RequireVerifiedEmail', () => {
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
     expect(screen.queryByText('secret page')).not.toBeInTheDocument()
   })
+
+  it('keeps the navigation bar up while it checks, so the page does not blank out', () => {
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})))
+
+    renderGuarded()
+
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+  })
 })

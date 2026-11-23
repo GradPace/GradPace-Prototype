@@ -2,15 +2,14 @@ import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar/Navbar";
 import { ApiError, apiFetch, apiGet } from "../../lib/api/api";
-
-type Me = { email: string; email_verified: boolean };
+import { knownMe, rememberMe, type Me } from "../../lib/api/me";
 
 // Where a new account lands until its email is verified: tells the user to
 // open the link that was emailed, and can send it again. Verified users who
 // open it are sent on.
 export default function CheckEmailPage() {
   const navigate = useNavigate();
-  const [me, setMe] = useState<Me | null>(null);
+  const [me, setMe] = useState<Me | null>(knownMe());
   const [loggedOut, setLoggedOut] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +17,10 @@ export default function CheckEmailPage() {
 
   useEffect(() => {
     apiGet<Me>("/api/auth/me/")
-      .then(setMe)
+      .then((latest) => {
+        rememberMe(latest);
+        setMe(latest);
+      })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) setLoggedOut(true);
         else setError("We couldn't load your account. Please refresh the page.");
