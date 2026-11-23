@@ -8,6 +8,7 @@ import HowItWorksPage from "./pages/HowItWorksPage/HowItWorksPage";
 import FeaturesPage from "./pages/FeaturesPage/FeaturesPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage/ResetPasswordPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage/VerifyEmailPage";
 {
   /* Routes is what nests <Route>s
    * Route maps URLs to components
@@ -25,6 +26,7 @@ function App() {
       <Route path="/features" element={<FeaturesPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
     </Routes>
   );
 }
