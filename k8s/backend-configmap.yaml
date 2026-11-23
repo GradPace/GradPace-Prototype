@@ -16,7 +16,14 @@ data:
   EMAIL_BACKEND: "django.core.mail.backends.smtp.EmailBackend"
   EMAIL_HOST: "mail"
   EMAIL_PORT: "25"
-  EMAIL_HOST_USER: "noreply@gradpace.steyaert.xyz"
+  # Empty on purpose: no SMTP login. The `mail` Postfix (mail-deployment.yaml)
+  # doesn't offer AUTH - it relays for pods on the cluster network
+  # (MYNETWORKS in mail-configmap.yaml) - and Django logs in whenever a
+  # username AND password are set, so the old value made every send fail with
+  # "SMTP AUTH extension not supported by server" (password reset emails
+  # included). The email-host-password secret can stay; it is unused without
+  # a username.
+  EMAIL_HOST_USER: ""
   EMAIL_USE_TLS: "0"
   DEFAULT_FROM_EMAIL: "noreply@gradpace.steyaert.xyz"
   LLAMA_CPP_BASE_URL: "http://llama:8080"
