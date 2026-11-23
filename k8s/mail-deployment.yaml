@@ -29,7 +29,13 @@ spec:
           volumeMounts:
             - name: mail-dkim
               mountPath: /etc/opendkim/keys
+            - name: rspamd-dkim
+              mountPath: /etc/rspamd/override.d/dkim_signing.conf
+              subPath: dkim_signing.conf
       volumes:
+        - name: rspamd-dkim
+          configMap:
+            name: mail-rspamd-dkim
         - name: mail-dkim
           hostPath:
             path: /srv/prototype/mail_dkim_k3s
