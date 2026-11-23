@@ -23,6 +23,7 @@ Rule-based on purpose: the SRS (Table 1) scopes the prototype to "basic
 scoring" and "rule based instead of AI-driven" gap detection.
 """
 
+import re
 from collections import Counter
 
 from .algorithms import calculate_benchmark_score
@@ -173,6 +174,110 @@ def score_groups(student_skills, groups, points=100.0, level_credit=main_level_c
             }
         )
     return earned_total, details
+
+
+def _course_key(code):
+    return re.sub(r'\s+', '', code).upper()
+
+
+def score_courses(course_codes, config):
+    """Points earned for the config's courses taken, out of
+    config.courses_points, equal points each. Matched on course code,
+    ignoring case and spaces ('cs361' == 'CS 361').
+    Returns (points earned, one dict per course)."""
+    taken = {_course_key(code) for code in course_codes}
+    each = config.courses_points / len(config.courses)
+    details = [
+        {'code': code, 'name': name, 'taken': _course_key(code) in taken, 'points': round(each, 2)}
+        for code, name in config.courses
+    ]
+    return each * sum(course['taken'] for course in details), details
+
+
+def certificate_bonus(certificate_names, config):
+    """Bonus for the config's certificates, up to config.cert_bonus_max.
+    Matched on name, ignoring case.
+    Returns (bonus, names of the certificates that counted)."""
+    have = {_key(name) for name in certificate_names}
+    counted = [name for name in config.certificates if _key(name) in have]
+    return min(config.cert_bonus_max, config.cert_bonus_each * len(counted)), counted
+
+
+def next_steps(group_details, course_details, count):
+    """The `count` things that would add the most points: skill groups not
+    at full credit, and courses not taken."""
+    steps = [
+        {
+            'kind': 'skill',
+            'name': group['name'],
+            'points_available': round(group['out_of'] - group['points'], 2),
+            'options': [option['label'] for option in group['options']],
+        }
+        for group in group_details
+        if group['out_of'] - group['points'] >= 0.01
+    ]
+    steps += [
+        {
+            'kind': 'course',
+            'name': f'{course["code"]} {course["name"]}',
+            'points_available': course['points'],
+            'options': [],
+        }
+        for course in course_details
+        if not course['taken']
+    ]
+    steps.sort(key=lambda step: -step['points_available'])
+    return steps[:count]
+
+
+def readiness_configured(student_skills, course_codes, certificate_names, groups, config):
+    """Score plain data under a ScoringConfig: skill groups + courses +
+    certificate bonus. Returns calculate_benchmark_score's shape
+    (overall_readiness_score, gap_breakdown with 'skills' and 'courses')
+    plus `skill_groups`, `courses`, `certificates` and `next_steps`.
+
+    Skills and courses are two dimensions, each scored 0-100 and weighted by
+    their points; the bonus is added after and the total capped. Pure - no
+    database.
+
+    groups: [SkillGroup, ...] from build_job_benchmark(..., skill_groups=)"""
+    skills_earned, group_details = score_groups(
+        student_skills, groups, points=config.skills_points, level_credit=config.level_credit
+    )
+    courses_earned, course_details = score_courses(course_codes, config)
+    bonus, counted = certificate_bonus(certificate_names, config)
+
+    result = calculate_benchmark_score(
+        {
+            'skills': round(100.0 * skills_earned / config.skills_points, 2),
+            'courses': round(100.0 * courses_earned / config.courses_points, 2),
+        },
+        {
+            'skills': config.skills_points / config.max_score,
+            'courses': config.courses_points / config.max_score,
+        },
+    )
+    result['overall_readiness_score'] = min(
+        config.max_score, round(result['overall_readiness_score'] + bonus, 2)
+    )
+    result['skill_groups'] = {
+        'points': round(skills_earned, 2),
+        'out_of': config.skills_points,
+        'groups': group_details,
+    }
+    result['courses'] = {
+        'points': round(courses_earned, 2),
+        'out_of': config.courses_points,
+        'list': course_details,
+    }
+    result['certificates'] = {
+        'bonus': bonus,
+        'max_bonus': config.cert_bonus_max,
+        'counted': counted,
+        'options': list(config.certificates),
+    }
+    result['next_steps'] = next_steps(group_details, course_details, config.next_steps_count)
+    return result
 
 
 def room_to_grow(skill_detail):
