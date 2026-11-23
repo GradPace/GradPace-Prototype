@@ -111,10 +111,15 @@ test-frontend: lint-frontend typecheck-frontend test-frontend-unit ## Run everyt
 # never fired - `kubectl apply` would just reuse them, so uv sync/migrate
 # wouldn't rerun, and the rm would delete the db out from under the old
 # backend, leaving it serving an empty database with no tables.
-test-e2e: ## Run Playwright e2e tests against a throwaway k3s namespace (wipes backend/db.sqlite3 before and after)
+#
+# backend/.e2e-mail holds the emails the backend sends (the verification
+# link): it is made here, world-writable, because the pod writes into it as
+# root and a root-owned directory couldn't be cleaned up afterwards.
+test-e2e: ## Run Playwright e2e tests against a throwaway k3s namespace (wipes backend/db.sqlite3 and backend/.e2e-mail before and after)
 	kubectl delete namespace gradpace-e2e --ignore-not-found --wait=true
-	rm -f backend/db.sqlite3
-	trap 'kubectl delete namespace gradpace-e2e --ignore-not-found --wait=true; rm -f backend/db.sqlite3' EXIT; \
+	rm -rf backend/db.sqlite3 backend/.e2e-mail
+	mkdir -m 777 backend/.e2e-mail
+	trap 'kubectl delete namespace gradpace-e2e --ignore-not-found --wait=true; rm -rf backend/db.sqlite3 backend/.e2e-mail' EXIT; \
 	kubectl apply -f k8s/e2e/namespace.yaml && \
 	sed "s#__CHECKOUT_PATH__#$(CURDIR)#g" k8s/e2e/backend-pod.yaml | kubectl apply -f - && \
 	sed "s#__CHECKOUT_PATH__#$(CURDIR)#g" k8s/e2e/frontend-pod.yaml | kubectl apply -f - && \

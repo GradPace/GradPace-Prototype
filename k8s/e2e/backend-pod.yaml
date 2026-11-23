@@ -37,6 +37,10 @@ spec:
           value: /app/.venv
         - name: PYTHONPYCACHEPREFIX
           value: /pycache
+        # Emails are written here (the checkout's backend/.e2e-mail on the
+        # host) so the Playwright test can open the verification link.
+        - name: EMAIL_FILE_PATH
+          value: /app/.e2e-mail
       # Small requests so these pods aren't BestEffort (first evicted, last
       # to get CPU) on a busy steyaert-mgr; limits cap a runaway uv sync.
       resources:

@@ -1,5 +1,7 @@
 """Local development settings."""
 
+import os
+
 from dotenv import load_dotenv
 
 from .base import *
@@ -24,6 +26,16 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+# The e2e suite (k8s/e2e/backend-pod.yaml) sets EMAIL_FILE_PATH so the emails
+# the backend sends - the verification link - land in files its browser test
+# can read, instead of only being printed to the pod's log.
+if os.environ.get('EMAIL_FILE_PATH'):
+    MAILERS = {
+        'default': {
+            'BACKEND': 'django.core.mail.backends.filebased.EmailBackend',
+            'OPTIONS': {'file_path': os.environ['EMAIL_FILE_PATH']},
+        },
+    }
 
 # accounts.validators.PwnedPasswordValidator - skip the network call locally.
 PWNED_PASSWORDS_CHECK_ENABLED = False
