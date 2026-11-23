@@ -159,6 +159,7 @@ REST_FRAMEWORK = {
         'refresh': '30/min',
         'password_reset': '5/hour',
         'verify_email': '20/hour',
+        'resend_verification': '5/hour',
         'llm': '10/min',
         'transcript': '20/hour',
     },

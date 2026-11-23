@@ -32,6 +32,7 @@ from .serializers import (
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    ResendVerificationResultSerializer,
     SkillSerializer,
     StudentProfileCreateSerializer,
     StudentProfileSerializer,
@@ -82,6 +83,23 @@ class RegisterView(APIView):
             {'access': str(refresh.access_token), 'refresh': str(refresh)},
             status=status.HTTP_201_CREATED,
         )
+
+
+class ResendVerificationEmailView(APIView):
+    """Logged in - sends the verification link again to the address the
+    caller registered with, unless the account is already verified. For when
+    the first email was lost, or the 7-day link has expired. Limited per
+    user (resend_verification)."""
+
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'resend_verification'
+
+    @extend_schema(request=None, responses={200: ResendVerificationResultSerializer})
+    def post(self, request):
+        if request.user.email_verified:
+            return Response({'sent': False, 'already_verified': True})
+        send_verification_email(request.user)
+        return Response({'sent': True, 'already_verified': False})
 
 
 class VerifyEmailView(APIView):

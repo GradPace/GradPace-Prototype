@@ -186,3 +186,72 @@ def test_a_superuser_made_from_the_command_line_is_verified():
     user = User.objects.create_superuser('root@example.com', PASSWORD)
 
     assert user.email_verified is True
+
+
+# --- resending the link -----------------------------------------------------
+
+RESEND = '/api/auth/verify-email/resend/'
+
+
+def authed(client, user):
+    return {'HTTP_AUTHORIZATION': f'Bearer {login(client, user)["access"]}'}
+
+
+@pytest.mark.django_db
+def test_resending_requires_a_login(client):
+    assert client.post(RESEND).status_code == 401
+
+
+@pytest.mark.django_db
+def test_resending_emails_the_link_again_to_the_registered_address(client):
+    register(client, email='new.user@example.com')
+    wait_for_emails()
+    mail.outbox.clear()
+    user = User.objects.get(email='new.user@example.com')
+
+    response = client.post(RESEND, **authed(client, user))
+    wait_for_emails()
+
+    assert response.status_code == 200
+    assert response.json() == {'sent': True, 'already_verified': False}
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ['new.user@example.com']
+    assert mail.outbox[0].subject == 'Verify your GradPace email address'
+
+
+@pytest.mark.django_db
+def test_the_resent_link_verifies_the_account(client):
+    register(client, email='new.user@example.com')
+    wait_for_emails()
+    mail.outbox.clear()
+    user = User.objects.get(email='new.user@example.com')
+    client.post(RESEND, **authed(client, user))
+
+    response = verify(client, emailed_token())
+
+    assert response.status_code == 200
+    user.refresh_from_db()
+    assert user.email_verified is True
+
+
+@pytest.mark.django_db
+def test_resending_to_a_verified_account_sends_nothing(client):
+    user = UserFactory(email_verified=True)
+
+    response = client.post(RESEND, **authed(client, user))
+    wait_for_emails()
+
+    assert response.status_code == 200
+    assert response.json() == {'sent': False, 'already_verified': True}
+    assert len(mail.outbox) == 0
+
+
+@pytest.mark.django_db
+def test_resending_is_limited_per_user(client):
+    user = UserFactory()
+    headers = authed(client, user)
+
+    statuses = [client.post(RESEND, **headers).status_code for _ in range(6)]
+    wait_for_emails()
+
+    assert statuses == [200, 200, 200, 200, 200, 429]

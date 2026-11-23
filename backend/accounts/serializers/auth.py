@@ -211,3 +211,10 @@ class VerifyEmailResultSerializer(serializers.Serializer):
     already_verified = serializers.BooleanField(
         help_text='True when the account had already been verified before this request.'
     )
+
+
+class ResendVerificationResultSerializer(serializers.Serializer):
+    sent = serializers.BooleanField(help_text='True when a new verification email was sent.')
+    already_verified = serializers.BooleanField(
+        help_text='True when the account is already verified, so nothing was sent.'
+    )
