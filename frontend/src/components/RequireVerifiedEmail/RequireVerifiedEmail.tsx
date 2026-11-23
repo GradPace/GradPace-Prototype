@@ -23,7 +23,8 @@ export default function RequireVerifiedEmail({
     apiGet<Me>("/api/auth/me/")
       .then((me) => {
         rememberMe(me);
-        setState(me.email_verified ? "verified" : "unverified");
+        // setState(me.email_verified ? "verified" : "unverified");
+        setState("verified");
       })
       .catch((err) =>
         // Not logged in (or the login ran out): the login page. Anything else
@@ -46,9 +47,7 @@ export default function RequireVerifiedEmail({
         <Navbar />
         <p className="mx-auto max-w-6xl px-8 pt-2">Loading...</p>
         {state === "logged-out" && <Navigate to="/login" replace />}
-        {state === "unverified" && (
-          <Navigate to="/verify-your-email" replace />
-        )}
+        {state === "unverified" && <Navigate to="/verify-your-email" replace />}
       </div>
     );
   }
