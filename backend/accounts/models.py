@@ -33,6 +33,9 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        # Created from the command line by someone who already controls the
+        # address - there is no link to send.
+        extra_fields.setdefault('email_verified', True)
         return self.create_user(email, password, **extra_fields)
 
     def get_by_natural_key(self, email):
@@ -69,6 +72,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    # Set when the user opens the link emailed at registration
+    # (accounts/email_verification.py). Doesn't gate login.
+    email_verified = models.BooleanField(default=False)
 
     objects = CustomUserManager()
 

@@ -7,7 +7,7 @@ from django.http import Http404
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import exceptions, generics, permissions, status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -18,6 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from . import roles
+from .email_verification import send_verification_email, user_for_token
 from .mail import send_in_background
 from .models import AlumniProfile, Certificate, Role, Skill, StudentProfile, TakenClass
 from .permissions import IsStudent
@@ -40,6 +41,8 @@ from .serializers import (
     TranscriptResultSerializer,
     TranscriptUploadSerializer,
     UserSerializer,
+    VerifyEmailResultSerializer,
+    VerifyEmailSerializer,
 )
 from .throttling import AuthRateThrottle
 from .transcript import TranscriptError, parse_transcript
@@ -72,12 +75,47 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        send_verification_email(user)
 
         refresh = RefreshToken.for_user(user)
         return Response(
             {'access': str(refresh.access_token), 'refresh': str(refresh)},
             status=status.HTTP_201_CREATED,
         )
+
+
+class VerifyEmailView(APIView):
+    """Public - the signed token from the emailed link IS the authentication,
+    like the password reset link. Marks the account verified. Opening the
+    link a second time is harmless: it reports already_verified."""
+
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
+    throttle_scope = 'verify_email'
+
+    @extend_schema(
+        request=VerifyEmailSerializer,
+        responses={
+            200: VerifyEmailResultSerializer,
+            400: OpenApiResponse(description='The link is invalid or has expired.'),
+        },
+    )
+    def post(self, request):
+        serializer = VerifyEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = user_for_token(serializer.validated_data['token'], User)
+        if user is None:
+            return Response(
+                {'detail': 'This verification link is invalid or has expired.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        already_verified = user.email_verified
+        if not already_verified:
+            user.email_verified = True
+            user.save(update_fields=['email_verified'])
+        return Response({'verified': True, 'already_verified': already_verified})
 
 
 class LoginView(TokenObtainPairView):

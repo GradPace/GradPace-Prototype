@@ -47,6 +47,7 @@ erDiagram
         DateTimeField created_at
         BooleanField is_active
         BooleanField is_staff
+        BooleanField email_verified
     }
     StudentProfile {
         UUIDField id PK

@@ -9,6 +9,8 @@ from .auth import (
     RegisterSerializer,
     TokenPairSerializer,
     UserSerializer,
+    VerifyEmailResultSerializer,
+    VerifyEmailSerializer,
 )
 from .student import (
     StudentProfileCreateSerializer,
@@ -36,4 +38,6 @@ __all__ = [
     'TranscriptResultSerializer',
     'TranscriptUploadSerializer',
     'UserSerializer',
+    'VerifyEmailResultSerializer',
+    'VerifyEmailSerializer',
 ]
