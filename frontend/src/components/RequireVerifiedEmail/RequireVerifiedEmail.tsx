@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
+import Navbar from "../Navbar/Navbar";
 import { ApiError, apiGet } from "../../lib/api/api";
+import { rememberMe, type Me } from "../../lib/api/me";
 
 type State = "checking" | "verified" | "unverified" | "logged-out";
 
@@ -18,8 +20,11 @@ export default function RequireVerifiedEmail({
   const [state, setState] = useState<State>("checking");
 
   useEffect(() => {
-    apiGet<{ email_verified: boolean }>("/api/auth/me/")
-      .then((me) => setState(me.email_verified ? "verified" : "unverified"))
+    apiGet<Me>("/api/auth/me/")
+      .then((me) => {
+        rememberMe(me);
+        setState(me.email_verified ? "verified" : "unverified");
+      })
       .catch((err) =>
         // Not logged in (or the login ran out): the login page. Anything else
         // - the server unreachable, say - isn't a reason to lock anyone out;
@@ -32,16 +37,20 @@ export default function RequireVerifiedEmail({
       );
   }, []);
 
-  if (state === "checking") {
+  // Navigate renders nothing until the route changes a moment later, which
+  // showed as a blank frame between pages. So the loading shell (with the
+  // navigation bar) stays up for the checking state and for both redirects.
+  if (state !== "verified") {
     return (
       <div className="min-h-screen bg-canvas font-sans text-sm text-slate">
-        <p className="p-8">Loading...</p>
+        <Navbar />
+        <p className="mx-auto max-w-6xl px-8 pt-2">Loading...</p>
+        {state === "logged-out" && <Navigate to="/login" replace />}
+        {state === "unverified" && (
+          <Navigate to="/verify-your-email" replace />
+        )}
       </div>
     );
-  }
-  if (state === "logged-out") return <Navigate to="/login" replace />;
-  if (state === "unverified") {
-    return <Navigate to="/verify-your-email" replace />;
   }
   return <>{children}</>;
 }
