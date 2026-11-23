@@ -35,6 +35,15 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_superuser', True)
         return self.create_user(email, password, **extra_fields)
 
+    def get_by_natural_key(self, email):
+        """What authenticate() (and so login and the admin) uses to find the
+        user. Django's default is an exact match, so Ada.L@example.com and
+        ada.l@example.com were different people at login even though
+        registration and password reset already treat them as one (the
+        unique_email_ci constraint). Compare in lower case, which also uses
+        that constraint's index, so a user is found however they type it."""
+        return self.get(email__lower=email.lower())
+
 
 # Lets lookups use email__lower=..., which compiles to LOWER(email) and so can
 # use CustomUser's unique_email_ci index below. email__iexact compiles to
