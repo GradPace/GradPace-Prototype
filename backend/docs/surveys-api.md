@@ -119,9 +119,9 @@ response id or job title.
 | `response_count`, `latest_submitted_at` | `latest_submitted_at` is `null` when there are no responses |
 | `ratings.*.average` | rounded to 2 places; `null` when there are no responses |
 | `ratings.*.distribution` | always all five values 1-5 in order, `0` where nobody chose it |
-| `by_industry` | every industry from the table below, in that order, `0` when empty. The averages are `null` unless the industry has **at least 3 responses** (`MIN_RESPONSES_FOR_AVERAGES`), so a small industry's ratings can't be traced to one person |
-| `top_skills` | every skill named, most common first (ties by label). Show `label` (the skill picker's label); `name` is the catalog name |
-| `suggested_skills` | free text, so grouped ignoring case and surrounding spaces ("Rust", "rust" and " Rust " are one), shown with the most common spelling. Most common first, at most 20 |
+| `by_industry` | every industry from the table below, in that order, `0` when empty. The averages are `null` unless the industry has **at least 3 responses** (`MIN_RESPONSES_FOR_AVERAGES`), so a small industry's ratings can't be traced to one person. Stored values that aren't a listed industry (blank included) are grouped into one last row, `"code": ""`, `"label": "Unspecified"`, only when there are any |
+| `top_skills` | every skill named, counted as alumni (a response counts each skill once), most common first (ties by label). Show `label` (the skill picker's label); `name` is the catalog name |
+| `suggested_skills` | free text, so grouped ignoring case and surrounding spaces ("Rust", "rust" and " Rust " are one), shown with the most common spelling. Counted as alumni, like `top_skills`. Most common first, at most 20 |
 | `feedback` | `text` and `submitted_at` only, newest first, at most 50. `feedback_count` is the total |
 
 ### Industry values

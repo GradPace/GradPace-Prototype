@@ -227,3 +227,70 @@ def test_results_contain_no_user_identifiers(client):
             'Zebra Quantum Wrangler',
         ):
             assert identifier not in text
+
+
+# Values the API wouldn't accept, from rows made by hand
+@pytest.mark.django_db
+def test_unlisted_industries_are_one_unspecified_row(client):
+    made = [
+        AlumniSurveyResponseFactory(preparedness_rating=rating, platform_helpfulness_rating=5)
+        for rating in (2, 3, 5)
+    ]
+    AlumniSurveyResponseFactory(industry='software')
+    AlumniSurveyResponse.objects.filter(pk__in=[made[0].pk, made[1].pk]).update(industry='')
+    AlumniSurveyResponse.objects.filter(pk=made[2].pk).update(industry='bls')
+
+    body = results(client)
+
+    assert body['by_industry'][-1] == {
+        'code': '',
+        'label': 'Unspecified',
+        'count': 3,
+        'preparedness_average': 3.33,
+        'platform_helpfulness_average': 5.0,
+    }
+    assert [row['label'] for row in body['by_industry']].count('Unspecified') == 1
+    assert all(row['label'] for row in body['by_industry'])
+    assert not any(row['code'] == 'bls' for row in body['by_industry'])
+    assert sum(row['count'] for row in body['by_industry']) == body['response_count']
+
+
+@pytest.mark.django_db
+def test_unspecified_averages_follow_the_threshold(client):
+    made = AlumniSurveyResponseFactory.create_batch(2)
+    AlumniSurveyResponse.objects.filter(pk__in=[r.pk for r in made]).update(industry='')
+
+    unspecified = results(client)['by_industry'][-1]
+
+    assert unspecified['count'] == 2
+    assert unspecified['preparedness_average'] is None
+    assert unspecified['platform_helpfulness_average'] is None
+
+
+@pytest.mark.django_db
+def test_no_unspecified_row_when_every_industry_is_listed(client):
+    AlumniSurveyResponseFactory(industry='software')
+
+    body = results(client)
+
+    assert 'Unspecified' not in [row['label'] for row in body['by_industry']]
+
+
+@pytest.mark.django_db
+def test_a_response_counts_a_skill_once(client):
+    AlumniSurveyResponseFactory(top_skills=['Python', 'Python', ' Python'])
+    AlumniSurveyResponseFactory(top_skills=['Python'])
+
+    body = results(client)
+
+    assert body['top_skills'] == [{'name': 'Python', 'label': label_for('Python'), 'count': 2}]
+
+
+@pytest.mark.django_db
+def test_a_response_counts_a_suggestion_once(client):
+    AlumniSurveyResponseFactory(suggested_skills=['Rust', 'rust'])
+    AlumniSurveyResponseFactory(suggested_skills=['Rust'])
+
+    body = results(client)
+
+    assert body['suggested_skills'] == [{'skill': 'Rust', 'count': 2}]

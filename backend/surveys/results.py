@@ -19,6 +19,9 @@ MAX_SUGGESTED_SKILLS = 20
 MAX_FEEDBACK = 50
 RATING_VALUES = range(1, 6)
 RATING_FIELDS = ('preparedness_rating', 'platform_helpfulness_rating')
+# by_industry's row for stored codes that aren't an industry choice.
+UNSPECIFIED_CODE = ''
+UNSPECIFIED_LABEL = 'Unspecified'
 
 
 def _average(value):
@@ -47,27 +50,38 @@ def _by_industry(responses):
         )
         .order_by()
     }
-    # Every choice in order, then any stored code that isn't one (the
-    # database doesn't enforce choices), so the counts add up to the total.
-    industries = list(AlumniSurveyResponse.INDUSTRY_CHOICES)
-    known = {code for code, _ in industries}
-    industries += [(code, code) for code in sorted(rows) if code not in known]
-
-    results = []
-    for code, label in industries:
-        row = rows.get(code, {})
-        count = row.get('count', 0)
-        enough = count >= MIN_RESPONSES_FOR_AVERAGES
-        results.append(
-            {
-                'code': code,
-                'label': label,
-                'count': count,
-                'preparedness_average': _average(row['preparedness']) if enough else None,
-                'platform_helpfulness_average': _average(row['helpfulness']) if enough else None,
-            }
-        )
+    choices = AlumniSurveyResponse.INDUSTRY_CHOICES
+    results = [
+        _industry_row(code, label, [rows[code]] if code in rows else []) for code, label in choices
+    ]
+    # The database doesn't enforce choices, so a hand-made row can hold
+    # anything, blank included. All of those share one "Unspecified" row, so
+    # nothing shows blank or as a raw code and the counts add up to the total.
+    known = {code for code, _ in choices}
+    unlisted = [row for code, row in rows.items() if code not in known]
+    if unlisted:
+        results.append(_industry_row(UNSPECIFIED_CODE, UNSPECIFIED_LABEL, unlisted))
     return results
+
+
+def _industry_row(code, label, groups):
+    """One by_industry row from one or more grouped rows; averages weighted
+    by each group's count, and hidden below MIN_RESPONSES_FOR_AVERAGES."""
+    count = sum(group['count'] for group in groups)
+    enough = count >= MIN_RESPONSES_FOR_AVERAGES
+
+    def weighted(key):
+        if not enough:
+            return None
+        return _average(sum(group[key] * group['count'] for group in groups) / count)
+
+    return {
+        'code': code,
+        'label': label,
+        'count': count,
+        'preparedness_average': weighted('preparedness'),
+        'platform_helpfulness_average': weighted('helpfulness'),
+    }
 
 
 def _most_common(counts):
@@ -75,9 +89,21 @@ def _most_common(counts):
     return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
 
 
+def _once_each(skills):
+    """One response's skills, stripped, blanks dropped, and each listed once
+    (ignoring case) - so counts are alumni, never more than the responses.
+    The API already rejects repeats; this covers rows made by hand."""
+    seen = {}
+    for skill in skills:
+        spelling = skill.strip()
+        if spelling:
+            seen.setdefault(spelling.casefold(), spelling)
+    return seen.values()
+
+
 def _top_skills(skill_lists):
     """Catalog names, so each is shown with the same label as the skill picker."""
-    counts = Counter(name for names in skill_lists for name in names)
+    counts = Counter(name for names in skill_lists for name in _once_each(names))
     return [
         {'name': name, 'label': label_for(name), 'count': count}
         for name, count in sorted(counts.items(), key=lambda item: (-item[1], label_for(item[0])))
@@ -89,10 +115,8 @@ def _suggested_skills(skill_lists):
     the spelling alumni used most."""
     spellings = defaultdict(Counter)
     for skills in skill_lists:
-        for skill in skills:
-            spelling = skill.strip()
-            if spelling:
-                spellings[spelling.casefold()][spelling] += 1
+        for spelling in _once_each(skills):
+            spellings[spelling.casefold()][spelling] += 1
     grouped = {_most_common(variants)[0][0]: variants.total() for variants in spellings.values()}
     return [
         {'skill': skill, 'count': count}
@@ -112,6 +136,8 @@ def _feedback(responses):
 
 
 def report():
+    # Counts and averages run in the database; only the two skill lists come
+    # into Python. Fine at this scale - cache this if the dashboard gets busy.
     responses = AlumniSurveyResponse.objects.all()
     totals = responses.aggregate(count=Count('id'), latest=Max('submitted_at'))
     skills = list(responses.values_list('top_skills', 'suggested_skills'))

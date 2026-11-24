@@ -5,7 +5,7 @@ import SettingsTab from "./SettingsTab";
 import SurveyResultsTab from "./SurveyResultsTab";
 import UsersTab from "./UsersTab";
 
-// One entry per tab - add a tab (survey results is next) by adding a line.
+// One entry per tab - add a tab by adding a line.
 const TABS = [
   { id: "users", label: "Users", Panel: UsersTab },
   { id: "data-quality", label: "Data quality", Panel: DataQualityTab },

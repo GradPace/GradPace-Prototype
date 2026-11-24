@@ -115,9 +115,13 @@ class SurveyResultsSerializer(serializers.Serializer):
     latest_submitted_at = serializers.DateTimeField(allow_null=True)
     ratings = RatingsSerializer()
     by_industry = IndustryResultSerializer(
-        many=True, help_text='Every industry choice, in choice order, even at 0.'
+        many=True,
+        help_text='Every industry choice, in choice order, even at 0, then one '
+        "'Unspecified' row (code '') for stored values that aren't a choice, if any.",
     )
-    top_skills = TopSkillCountSerializer(many=True, help_text='Most common first.')
+    top_skills = TopSkillCountSerializer(
+        many=True, help_text='Alumni per skill (a response counts a skill once). Most common first.'
+    )
     suggested_skills = SuggestedSkillCountSerializer(
         many=True,
         help_text='Grouped ignoring case and surrounding spaces. Most common first, at most 20.',
