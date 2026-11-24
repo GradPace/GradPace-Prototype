@@ -12,6 +12,7 @@ model, and student profiles (classes taken, certificates, skills). See
 - [Common tasks](#common-tasks)
   - [Changed a model?](#changed-a-model)
   - [Loading job data](#loading-job-data)
+  - [Making an admin](#making-an-admin)
 - [Encrypted fields](#encrypted-fields)
 - [Deploying](#deploying)
 
@@ -86,6 +87,21 @@ uv run manage.py seed_jobs   # safe to rerun; --dry-run validates only
 
 See [intelligence/data/README.md](intelligence/data/README.md) for where the
 data comes from and how it was built.
+
+### Making an admin
+
+Admins can't sign up through the app. Give an account the admin role from
+the command line:
+
+```bash
+uv run manage.py make_admin <email>            # promote an existing account
+uv run manage.py make_admin <email> --create   # new admin, email already verified
+```
+
+`--create` asks for the password twice in the terminal and checks it against
+the same rules as signup. It never takes the password as an argument. Neither
+command sets `is_staff`/`is_superuser`, so Django admin site access is
+separate (`createsuperuser`).
 
 ## Encrypted fields
 

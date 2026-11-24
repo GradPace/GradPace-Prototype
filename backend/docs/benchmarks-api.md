@@ -150,6 +150,52 @@ skills change.
   in-demand first - for a full "you vs. the market" view.
 - `gap_breakdown` - the per-type scores and weights from the GP-40 formula.
 
+#### Scoring configs (school + location + role)
+
+For some students the score is refined by a **scoring config**
+(`benchmarks/config.py`). It applies when the job, the profile's `uni` and the
+profile's `location` all match one - today Old Dominion University, Norfolk, VA,
+Software Developers. Students without a match get the response above, unchanged.
+
+With a config:
+
+- postings are limited to the config's location, and tools that do the same job
+  (React or Angular, AWS or Azure) are grouped - a group's weight is the share of
+  postings listing *any* of its tools, and the student's best tool counts;
+- the score is skills (50) + courses taken (50) + a capped certificate bonus,
+  at most 100, and `gap_breakdown` has `skills` and `courses`;
+- `saved_to_profile` saves this score;
+- `benchmark` also has `school` and `location`, and the response adds:
+
+```json
+{
+  "skill_groups": {"points": 20.9, "out_of": 50, "groups": [
+    {"key": "cloud", "name": "Cloud", "points": 3.1, "out_of": 5.2,
+     "best_tool": "AWS", "level": "Practicing",
+     "options": [{"name": "Amazon Web Services AWS software", "label": "AWS"}]}
+  ]},
+  "courses": {"points": 25.0, "out_of": 50, "list": [
+    {"code": "CS 361", "name": "Data Structures and Algorithms", "taken": true, "points": 4.17}
+  ]},
+  "certificates": {"bonus": 5, "max_bonus": 10, "counted": ["..."], "options": ["..."]},
+  "next_steps": [
+    {"kind": "skill", "name": "Main language", "points_available": 8.1, "options": ["Python", "Java"]}
+  ]
+}
+```
+
+`skills` and `flagged_gaps` keep their usual shape. Levels are the same stored
+values (`beginner`, `intermediate`, `expert`), shown as Learning / Practicing /
+Project ready; `advanced` counts as Practicing and unrated as Learning.
+
+### `GET /api/benchmark/options/?role=<soc>&school=<name>&location=<place>`
+
+What the input pickers offer for a config: `levels` (value, label, credit),
+`skill_groups` (key, name, `points` the group is worth, `tools` with the exact
+`name` to save on the Skill row), `courses` (code, name) and `certificates`.
+Takes the three values as query params, not the profile, so it works before the
+student has one. 404 if no config matches.
+
 ### `GET /api/benchmark/me/best-fit/`
 
 The student's readiness for all 24 jobs, best match first. Doesn't change

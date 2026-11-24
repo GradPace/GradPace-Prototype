@@ -41,6 +41,10 @@ class AlumniUserFactory(UserFactory):
     role = factory.SubFactory(RoleFactory, role_name=roles.ALUMNI)
 
 
+class AdminUserFactory(UserFactory):
+    role = factory.SubFactory(RoleFactory, role_name=roles.ADMIN)
+
+
 class AlumniProfileFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = AlumniProfile

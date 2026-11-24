@@ -12,6 +12,10 @@ import VerifyEmailPage from "./pages/VerifyEmailPage/VerifyEmailPage";
 import CheckEmailPage from "./pages/CheckEmailPage/CheckEmailPage";
 import EventsPage from "./pages/EventsPage/EventsPage";
 import RequireVerifiedEmail from "./components/RequireVerifiedEmail/RequireVerifiedEmail";
+import Feedback from "./pages/Feedback/Feedback";
+import RequireAdmin from "./components/RequireAdmin/RequireAdmin";
+import RedirectAdmin from "./components/RedirectAdmin/RedirectAdmin";
+import AdminDashboardPage from "./pages/AdminDashboardPage/AdminDashboardPage";
 {
   /* Routes is what nests <Route>s
    * Route maps URLs to components
@@ -27,7 +31,9 @@ function App() {
         path="/profileSetup"
         element={
           <RequireVerifiedEmail>
-            <ProfileSetupPage />
+            <RedirectAdmin>
+              <ProfileSetupPage />
+            </RedirectAdmin>
           </RequireVerifiedEmail>
         }
       />
@@ -35,7 +41,19 @@ function App() {
         path="/profile"
         element={
           <RequireVerifiedEmail>
-            <ProfilePage />
+            <RedirectAdmin>
+              <ProfilePage />
+            </RedirectAdmin>
+          </RequireVerifiedEmail>
+        }
+      />
+      <Route
+        path="/admin-dashboard"
+        element={
+          <RequireVerifiedEmail>
+            <RequireAdmin>
+              <AdminDashboardPage />
+            </RequireAdmin>
           </RequireVerifiedEmail>
         }
       />
@@ -49,6 +67,14 @@ function App() {
       />
       <Route path="/how-it-works" element={<HowItWorksPage />} />
       <Route path="/features" element={<FeaturesPage />} />
+      <Route
+        path="/feedback"
+        element={
+          <RequireVerifiedEmail>
+            <Feedback />
+          </RequireVerifiedEmail>
+        }
+      />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />

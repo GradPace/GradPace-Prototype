@@ -48,6 +48,33 @@ describe('RequireVerifiedEmail', () => {
     expect(screen.queryByText('secret page')).not.toBeInTheDocument()
   })
 
+  it('lets an unverified user through when an admin has turned verification off', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(me({ email_verified: false, email_verification_required: false })),
+    )
+
+    renderGuarded()
+
+    expect(await screen.findByText('secret page')).toBeInTheDocument()
+  })
+
+  it('still sends an unverified user to verify when verification is on', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(me({ email_verified: false, email_verification_required: true })),
+    )
+
+    renderGuarded()
+
+    expect(await screen.findByText('verify your email page')).toBeInTheDocument()
+    expect(screen.queryByText('secret page')).not.toBeInTheDocument()
+  })
+
   it('sends someone who is not logged in to the login page', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(me({ detail: 'no' }, 401)))
 

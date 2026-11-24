@@ -7,6 +7,7 @@ from .models import (
     Certificate,
     CustomUser,
     Role,
+    SiteSettings,
     Skill,
     StudentProfile,
     TakenClass,
@@ -52,3 +53,20 @@ admin.site.register(AdminProfile)
 admin.site.register(TakenClass)
 admin.site.register(Certificate)
 admin.site.register(Skill)
+
+
+@admin.register(SiteSettings)
+class SiteSettingsAdmin(admin.ModelAdmin):
+    """Read-only. Admins change these from the dashboard
+    (/api/auth/admin/settings/), which records who changed them."""
+
+    list_display = ['require_email_verification', 'updated_at', 'updated_by']
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

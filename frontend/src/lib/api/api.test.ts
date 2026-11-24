@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiFetch, apiGet } from './api'
+import { ApiError, apiDelete, apiFetch, apiGet, apiPatch } from './api'
 
 function mockFetchOnce(status: number, body: unknown) {
   vi.stubGlobal(
@@ -44,6 +44,19 @@ describe('apiFetch', () => {
     await apiFetch('/api/auth/profile/', { student_id: '1' }, true)
 
     const [, options] = vi.mocked(fetch).mock.calls[0]
+    expect(options?.headers).toMatchObject({
+      Authorization: 'Bearer my-token',
+    })
+  })
+
+  it('sends another method when asked, keeping the token', async () => {
+    localStorage.setItem('access', 'my-token')
+    mockFetchOnce(200, {})
+
+    await apiFetch('/api/auth/admin/users/1/', { is_active: false }, true, 'PATCH')
+
+    const [, options] = vi.mocked(fetch).mock.calls[0]
+    expect(options?.method).toBe('PATCH')
     expect(options?.headers).toMatchObject({
       Authorization: 'Bearer my-token',
     })
@@ -146,5 +159,53 @@ describe('expired login tokens', () => {
     })
 
     expect(localStorage.getItem('access')).toBe('other')
+  })
+})
+
+describe('apiPatch and apiDelete', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    localStorage.setItem('access', 'my-token')
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('PATCHes the body as JSON with the access token', async () => {
+    mockFetchOnce(200, { id: 's1', proficiency_level: 'expert' })
+
+    const result = await apiPatch('/api/auth/profile/skills/s1/', {
+      proficiency_level: 'expert',
+    })
+
+    expect(result).toEqual({ id: 's1', proficiency_level: 'expert' })
+    const [url, options] = vi.mocked(fetch).mock.calls[0]
+    expect(url).toContain('/api/auth/profile/skills/s1/')
+    expect(options?.method).toBe('PATCH')
+    expect(options?.headers).toMatchObject({ Authorization: 'Bearer my-token' })
+    expect(JSON.parse(options?.body as string)).toEqual({ proficiency_level: 'expert' })
+  })
+
+  it('DELETEs with no body and resolves to null on 204', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, status: 204, text: () => Promise.resolve('') }),
+    )
+
+    await expect(apiDelete('/api/auth/profile/skills/s1/')).resolves.toBeNull()
+    const [, options] = vi.mocked(fetch).mock.calls[0]
+    expect(options?.method).toBe('DELETE')
+    expect(options?.body).toBeUndefined()
+    expect(options?.headers).toMatchObject({ Authorization: 'Bearer my-token' })
+  })
+
+  it('throws ApiError on failure', async () => {
+    mockFetchOnce(404, { detail: 'Not found.' })
+
+    await expect(apiDelete('/api/auth/profile/skills/nope/')).rejects.toMatchObject({
+      status: 404,
+      message: 'Not found.',
+    })
   })
 })

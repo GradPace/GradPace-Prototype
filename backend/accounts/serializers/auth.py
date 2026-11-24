@@ -9,11 +9,13 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.utils.encoding import force_str
 from django.utils.http import urlsafe_base64_decode
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .. import roles
-from ..models import Role
+from ..models import Role, SiteSettings
 from ..turnstile import TOKEN_FIELD, verify_turnstile
 
 User = get_user_model()
@@ -200,6 +202,14 @@ class UserSerializer(serializers.Serializer):
     last_name = serializers.CharField(read_only=True)
     role = serializers.CharField(source='role.role_name', read_only=True, allow_null=True)
     email_verified = serializers.BooleanField(read_only=True)
+    email_verification_required = serializers.SerializerMethodField(
+        help_text='The site-wide switch (SiteSettings): whether the frontend sends an '
+        'unverified account to verify its email before its pages.'
+    )
+
+    @extend_schema_field(OpenApiTypes.BOOL)
+    def get_email_verification_required(self, user):
+        return SiteSettings.load().require_email_verification
 
 
 class VerifyEmailSerializer(serializers.Serializer):

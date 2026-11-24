@@ -102,3 +102,112 @@ def test_get_job_prefers_the_national_row():
 
     assert get_job('15-1252') == national
     assert get_job('99-9999') is None
+
+
+# --- location filter ---
+
+
+@pytest.mark.django_db
+def test_location_limits_postings_to_that_location():
+    job = JobFactory()
+    git = JobSkillFactory(job=job, name='Git', skill_type='software')
+    kubernetes = JobSkillFactory(job=job, name='Kubernetes', skill_type='software')
+    JobPostingFactory(job=job, location='Norfolk, VA', skills=[git])
+    JobPostingFactory(job=job, location='Austin, TX', skills=[kubernetes])
+
+    benchmark = build_job_benchmark(job, location='Norfolk, VA')
+
+    assert weights(benchmark) == {'Git': 1.0}
+    assert benchmark.postings_used == 1
+
+
+@pytest.mark.django_db
+def test_no_location_uses_every_posting():
+    job = JobFactory()
+    git = JobSkillFactory(job=job, name='Git', skill_type='software')
+    JobPostingFactory(job=job, location='Norfolk, VA', skills=[git])
+    JobPostingFactory(job=job, location='Austin, TX', skills=[])
+
+    assert build_job_benchmark(job).postings_used == 2
+
+
+@pytest.mark.django_db
+def test_location_with_no_postings_falls_back_to_the_job_skill_list():
+    job = JobFactory()
+    JobSkillFactory(job=job, name='Git', skill_type='software')
+    JobPostingFactory(job=job, location='Austin, TX')
+
+    benchmark = build_job_benchmark(job, location='Norfolk, VA')
+
+    assert weights(benchmark) == {'Git': 1.0}
+    assert benchmark.postings_used == 0
+
+
+# --- skill groups ---
+
+CLOUD = ('cloud', 'Cloud', ['Amazon Web Services AWS software', 'Microsoft Azure software'])
+
+
+@pytest.mark.django_db
+def test_group_weight_is_share_of_postings_listing_any_tool():
+    job = JobFactory()
+    aws = JobSkillFactory(job=job, name='Amazon Web Services AWS software')
+    azure = JobSkillFactory(job=job, name='Microsoft Azure software')
+    git = JobSkillFactory(job=job, name='Git')
+    JobPostingFactory(job=job, skills=[aws])
+    JobPostingFactory(job=job, skills=[azure])
+    JobPostingFactory(job=job, skills=[aws, azure])  # counts once
+    JobPostingFactory(job=job, skills=[git])
+
+    benchmark = build_job_benchmark(job, skill_groups=[CLOUD])
+
+    [group] = benchmark.groups
+    assert (group.key, group.name) == ('cloud', 'Cloud')
+    assert group.tools == (
+        'Amazon Web Services AWS software',
+        'Microsoft Azure software',
+    )
+    assert group.weight == 0.75
+
+
+@pytest.mark.django_db
+def test_groups_are_not_cut_off_by_min_demand():
+    job = JobFactory()
+    rare = JobSkillFactory(job=job, name='Rare Tool')
+    JobPostingFactory(job=job, skills=[rare])
+    for _ in range(19):
+        JobPostingFactory(job=job, skills=[])
+
+    benchmark = build_job_benchmark(job, skill_groups=[('rare', 'Rare', ['Rare Tool'])])
+
+    assert weights(benchmark) == {}  # 5% < MIN_DEMAND
+    assert benchmark.groups[0].weight == 0.05
+
+
+@pytest.mark.django_db
+def test_groups_weigh_equally_without_postings():
+    job = JobFactory()
+
+    benchmark = build_job_benchmark(job, skill_groups=[CLOUD, ('os', 'OS', ['Linux'])])
+
+    assert [g.weight for g in benchmark.groups] == [1.0, 1.0]
+
+
+@pytest.mark.django_db
+def test_groups_follow_the_location_filter():
+    job = JobFactory()
+    aws = JobSkillFactory(job=job, name='Amazon Web Services AWS software')
+    JobPostingFactory(job=job, location='Norfolk, VA', skills=[aws])
+    JobPostingFactory(job=job, location='Austin, TX', skills=[])
+
+    benchmark = build_job_benchmark(job, location='Norfolk, VA', skill_groups=[CLOUD])
+
+    assert benchmark.groups[0].weight == 1.0
+
+
+@pytest.mark.django_db
+def test_no_skill_groups_leaves_groups_empty():
+    job = JobFactory()
+    JobPostingFactory(job=job)
+
+    assert build_job_benchmark(job).groups == []

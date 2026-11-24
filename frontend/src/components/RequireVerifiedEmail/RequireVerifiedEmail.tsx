@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import Navbar from "../Navbar/Navbar";
 import { ApiError, apiGet } from "../../lib/api/api";
-import { rememberMe, type Me } from "../../lib/api/me";
+import { canSkipVerification, rememberMe, type Me } from "../../lib/api/me";
 
 type State = "checking" | "verified" | "unverified" | "logged-out";
 
@@ -23,8 +23,7 @@ export default function RequireVerifiedEmail({
     apiGet<Me>("/api/auth/me/")
       .then((me) => {
         rememberMe(me);
-        // setState(me.email_verified ? "verified" : "unverified");
-        setState("verified");
+        setState(canSkipVerification(me) ? "verified" : "unverified");
       })
       .catch((err) =>
         // Not logged in (or the login ran out): the login page. Anything else
