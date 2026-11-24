@@ -1,10 +1,14 @@
 import { Link, useNavigate } from "react-router-dom";
 import { logout } from "../../lib/api/auth";
+import { isAdmin, knownMe } from "../../lib/api/me";
 import logo from "../../assets/logo-large-dark.png";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const isLoggedIn = Boolean(localStorage.getItem("access"));
+  // From the last /me fetch (login or a page guard). Admins have no student
+  // profile, so they get Admin in place of Profile.
+  const admin = isAdmin(knownMe());
 
   async function handleLogout() {
     await logout();
@@ -45,10 +49,10 @@ export default function Navbar() {
           {isLoggedIn ? (
             <>
               <Link
-                to="/profile"
+                to={admin ? "/admin-dashboard" : "/profile"}
                 className="text-sm text-blue/70 transition-colors hover:text-blue"
               >
-                Profile
+                {admin ? "Admin" : "Profile"}
               </Link>
               <button
                 type="button"

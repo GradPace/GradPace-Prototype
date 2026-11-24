@@ -7,16 +7,18 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework import status
+from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import StudentProfile
+from accounts.permissions import IsAdmin
 
-from . import event_facts, events, places
+from . import data_health, event_facts, events, places
 from .llm import LLMUnavailable, chat_json
 from .models import EventChat
 from .serializers import (
+    DataHealthSerializer,
     EventChatRequestSerializer,
     EventChatSerializer,
     EventRecommendationSerializer,
@@ -520,3 +522,19 @@ class EventChatView(APIView):
             'chats_remaining': chats_remaining(user, event_id),
             'max_chats': EventChat.MAX_PER_EVENT,
         }
+
+
+# --- Admin ----------------------------------------------------------------
+
+
+class DataHealthView(APIView):
+    """Admins only - job catalog totals and gaps, when it was last seeded, and
+    how many student locations places.lookup recognizes (counts and the
+    unrecognized values only, nothing that identifies a student). See
+    data_health.py."""
+
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+    @extend_schema(responses={200: DataHealthSerializer})
+    def get(self, request):
+        return Response(DataHealthSerializer(data_health.report()).data)

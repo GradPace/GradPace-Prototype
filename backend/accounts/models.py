@@ -1,9 +1,11 @@
 import uuid
 
+from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.core.validators import MinValueValidator, URLValidator
 from django.db import models
+from django.db.models import Q
 from django.db.models.functions import Lower
 
 from .fields import EncryptedCharField
@@ -247,3 +249,45 @@ class Skill(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.student.user.email})'
+
+
+class SiteSettings(models.Model):
+    """Site-wide switches admins change from the dashboard
+    (/api/auth/admin/settings/). Exactly one row: use SiteSettings.load(),
+    never create one directly.
+
+    The pk is fixed at 1 rather than a UUID like the other models, so the
+    database itself (site_settings_singleton) rules out a second row, and
+    load()'s get_or_create can't race two first requests into two rows."""
+
+    SINGLETON_PK = 1
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=SINGLETON_PK, editable=False)
+    # Whether the frontend sends an unverified account to "Verify your email"
+    # before its pages. Turning it off never changes anyone's email_verified,
+    # and signup sends the verification email either way.
+    require_email_verification = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+    )
+
+    class Meta:
+        verbose_name_plural = 'site settings'
+        constraints = [
+            models.CheckConstraint(condition=Q(id=1), name='site_settings_singleton'),
+        ]
+
+    def __str__(self):
+        return 'Site settings'
+
+    @classmethod
+    def load(cls):
+        """The one row, created with the defaults the first time it's needed
+        - so no data migration."""
+        site_settings, _ = cls.objects.get_or_create(pk=cls.SINGLETON_PK)
+        return site_settings
