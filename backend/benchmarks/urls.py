@@ -1,13 +1,9 @@
 from django.urls import path
 
-from . import views, views_demo
+from . import views
 from .views import GapRelevanceView
 
 urlpatterns = [
-    # For (GP-82)
-    path('demo/options/', views_demo.DemoOptionsView.as_view(), name='demo_options'),
-    path('demo/me/', views_demo.MyBenchmarkDemoView.as_view(), name='my_benchmark_demo'),
-    #
     path('calculate/', views.BenchmarkView.as_view(), name='calculate_benchmark'),
     path('options/', views.ScoringOptionsView.as_view(), name='scoring_options'),
     path('me/', views.MyBenchmarkView.as_view(), name='my_benchmark'),
