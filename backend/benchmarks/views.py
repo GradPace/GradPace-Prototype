@@ -12,9 +12,10 @@ from intelligence.models import Job
 from .algorithms import calculate_benchmark_score
 from .best_fit import best_fit_jobs
 from .catalog import label_for, skill_catalog
+from .config import get_config
 from .job_benchmark import build_job_benchmark, get_job
 from .relevance import rank_resources_by_relevance
-from .scoring import score_student
+from .scoring import score_groups, score_student
 from .serializers import (
     BenchmarkRequestSerializer,
     BenchmarkResultSerializer,
@@ -22,6 +23,7 @@ from .serializers import (
     CatalogSkillSerializer,
     JobBenchmarkSerializer,
     RoleListItemSerializer,
+    ScoringOptionsSerializer,
     StudentBenchmarkSerializer,
 )
 
@@ -139,6 +141,11 @@ class MyBenchmarkView(APIView):
     StudentProfile.readiness_score (so looking at another role with ?role=
     never overwrites it) - `saved_to_profile` says which happened.
 
+    If the student's school and location, and the job, have a scoring config
+    (config.py), the score also counts skill groups, courses and certificates
+    against postings in that location, and the response adds `skill_groups`,
+    `courses`, `certificates` and `next_steps`.
+
     404 if the caller has no student profile yet. 400 if ?role= isn't a
     known SOC code, or there's no ?role= and no target job saved."""
 
@@ -174,7 +181,7 @@ class MyBenchmarkView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        result = score_student(profile, job)
+        result = score_student(profile, job, config=get_config(profile, job))
         result['role'] = {'soc_code': job.soc_code, 'title': job.title}
 
         is_target = job.pk == profile.target_job_id
@@ -184,6 +191,65 @@ class MyBenchmarkView(APIView):
         result['saved_to_profile'] = is_target
 
         return Response(result)
+
+
+class MyScoringOptionsView(APIView):
+    """What the input pickers offer the logged-in student, when they have a
+    scoring config (see MyBenchmarkView): skill levels, skill groups (the
+    tools in each, and the points each is worth), courses and certificates.
+    404 if the caller has no student profile, or no config applies to them
+    (their school, location or target job don't match one)."""
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                'role',
+                str,
+                required=False,
+                description="SOC code, e.g. 15-1252. Defaults to the profile's target_job.",
+            )
+        ],
+        responses={200: ScoringOptionsSerializer},
+    )
+    def get(self, request):
+        try:
+            profile = request.user.student_profile
+        except StudentProfile.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        soc_code = request.query_params.get('role')
+        job = get_job(soc_code) if soc_code is not None else profile.target_job
+        config = get_config(profile, job) if job is not None else None
+        if config is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        # Scoring nobody's skills gives each group's points with none earned.
+        benchmark = build_job_benchmark(
+            job, location=config.location, skill_groups=config.skill_groups
+        )
+        _, groups = score_groups({}, benchmark.groups, points=config.skills_points)
+        return Response(
+            {
+                'role': {'soc_code': job.soc_code, 'title': job.title},
+                'school': config.school,
+                'location': config.location,
+                'levels': [
+                    {'value': value, 'label': label, 'credit': credit}
+                    for value, (label, credit) in config.levels.items()
+                ],
+                'skill_groups': [
+                    {
+                        'key': group['key'],
+                        'name': group['name'],
+                        'points': group['out_of'],
+                        'tools': group['options'],
+                    }
+                    for group in groups
+                ],
+                'courses': [{'code': code, 'name': name} for code, name in config.courses],
+                'certificates': list(config.certificates),
+            }
+        )
 
 
 class BestFitJobsView(APIView):

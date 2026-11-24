@@ -328,14 +328,37 @@ def skills_of(student_profile):
     return {s.name: s.proficiency_level for s in student_profile.skills.all()}
 
 
-def score_student(student_profile, job, benchmark=None):
-    """Score a StudentProfile's skills against a Job's benchmark. Returns
-    readiness()'s result plus `benchmark`: how many postings it was built
-    from, so the UI can say "based on N postings"."""
-    benchmark = benchmark or build_job_benchmark(job)
-    result = readiness(skills_of(student_profile), benchmark.skills)
+def score_student(student_profile, job, benchmark=None, config=None):
+    """Score a StudentProfile against a Job's benchmark. Returns readiness()'s
+    result plus `benchmark`: how many postings it was built from, so the UI
+    can say "based on N postings".
+
+    With a ScoringConfig (see config.py) the benchmark is limited to the
+    config's location and also weighs its skill groups, and the result gains
+    `skill_groups`, `courses`, `certificates` and `next_steps`. The overall
+    score and gap_breakdown then cover skills + courses + the certificate
+    bonus. `skills` and `flagged_gaps` stay as in the base result."""
+    if benchmark is None:
+        benchmark = build_job_benchmark(
+            job,
+            location=config.location if config else None,
+            skill_groups=config.skill_groups if config else (),
+        )
+    student_skills = skills_of(student_profile)
+    result = readiness(student_skills, benchmark.skills)
     result['benchmark'] = {
         'postings_used': benchmark.postings_used,
         'seniorities_used': benchmark.seniorities_used,
     }
+    if config:
+        result.update(
+            readiness_configured(
+                student_skills,
+                [c.course_code for c in student_profile.taken_classes.all()],
+                [c.name for c in student_profile.certificates.all()],
+                benchmark.groups,
+                config,
+            )
+        )
+        result['benchmark'].update(school=config.school, location=config.location)
     return result
