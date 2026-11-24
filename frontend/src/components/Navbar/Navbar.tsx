@@ -18,46 +18,64 @@ export default function Navbar() {
           <img src={logo} alt="GradPace" className="h-7 w-auto" />
         </Link>
 
-        {/* Center nav links. gap-8 spaces the links, each link changes color only on hover */}
+        {/* Center nav links. gap-8 spaces the links, each link changes color only on hover.
+            A logged-in student sees their own pages instead of the marketing ones */}
         <nav className="flex items-center gap-8 text-sm text-slate">
-          <Link
-            to="/features"
-            className="text-blue/70 transition-colors hover:text-blue"
-          >
-            Features
-          </Link>
-          <Link
-            to="/how-it-works"
-            className="text-blue/70 transition-colors hover:text-blue"
-          >
-            How it works
-          </Link>
-          <a
-            href="#about"
-            className="text-blue/70 transition-colors hover:text-blue"
-          >
-            About
-          </a>
+          {isLoggedIn ? (
+            <>
+              <Link
+                to="/profile"
+                className="text-blue/70 transition-colors hover:text-blue"
+              >
+                Profile
+              </Link>
+              <Link
+                to="/feedback"
+                className="text-blue/70 transition-colors hover:text-blue"
+              >
+                Feedback
+              </Link>
+              <Link
+                to="/events"
+                className="text-blue/70 transition-colors hover:text-blue"
+              >
+                Events
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/features"
+                className="text-blue/70 transition-colors hover:text-blue"
+              >
+                Features
+              </Link>
+              <Link
+                to="/how-it-works"
+                className="text-blue/70 transition-colors hover:text-blue"
+              >
+                How it works
+              </Link>
+              <a
+                href="#about"
+                className="text-blue/70 transition-colors hover:text-blue"
+              >
+                About
+              </a>
+            </>
+          )}
         </nav>
 
         {/*Right side auth action. "Log in" and "Sign up" */}
         <div className="flex items-center gap-6">
           {isLoggedIn ? (
-            <>
-              <Link
-                to="/profile"
-                className="text-sm text-blue/70 transition-colors hover:text-blue"
-              >
-                Profile
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-md bg-blue px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue/90"
-              >
-                Log out
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-md bg-blue px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue/90"
+            >
+              Log out
+            </button>
           ) : (
             <>
               <Link
