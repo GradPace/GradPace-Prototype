@@ -1,9 +1,24 @@
-"""Admin dashboard (GP-62) - managing other users' accounts."""
+"""Admin dashboard (GP-62) - managing other users' accounts and the
+site-wide settings."""
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from ..models import SiteSettings
+
 User = get_user_model()
+
+
+class AdminSettingsSerializer(serializers.ModelSerializer):
+    """require_email_verification is the only field an admin can change;
+    anything else sent is ignored. updated_by is set by the view."""
+
+    updated_by = serializers.EmailField(source='updated_by.email', read_only=True, allow_null=True)
+
+    class Meta:
+        model = SiteSettings
+        fields = ['require_email_verification', 'updated_at', 'updated_by']
+        read_only_fields = ['updated_at']
 
 
 class AdminUserSerializer(serializers.ModelSerializer):

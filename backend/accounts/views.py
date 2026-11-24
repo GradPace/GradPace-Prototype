@@ -20,9 +20,18 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import roles
 from .email_verification import send_verification_email, user_for_token
 from .mail import send_in_background
-from .models import AlumniProfile, Certificate, Role, Skill, StudentProfile, TakenClass
+from .models import (
+    AlumniProfile,
+    Certificate,
+    Role,
+    SiteSettings,
+    Skill,
+    StudentProfile,
+    TakenClass,
+)
 from .permissions import IsAdmin, IsStudent
 from .serializers import (
+    AdminSettingsSerializer,
     AdminUserSerializer,
     AlumniConversionResultSerializer,
     AlumniConversionSerializer,
@@ -571,3 +580,19 @@ class AdminUserDetailView(generics.UpdateAPIView):
         user = serializer.save()
         if was_active and not user.is_active:
             _blacklist_all_outstanding_tokens(user)
+
+
+class AdminSettingsView(generics.RetrieveUpdateAPIView):
+    """Admins only - the site-wide settings (SiteSettings, one row). GET reads
+    them; PATCH changes require_email_verification and records who did.
+    Turning verification off doesn't touch anyone's email_verified."""
+
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    serializer_class = AdminSettingsSerializer
+    http_method_names = ['get', 'patch']
+
+    def get_object(self):
+        return SiteSettings.load()
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)

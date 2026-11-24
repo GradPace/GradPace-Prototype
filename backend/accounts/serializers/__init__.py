@@ -1,5 +1,5 @@
 from .academic_records import CertificateSerializer, SkillSerializer, TakenClassSerializer
-from .admin import AdminUserSerializer
+from .admin import AdminSettingsSerializer, AdminUserSerializer
 from .alumni import AlumniConversionResultSerializer, AlumniConversionSerializer
 from .auth import (
     LoginSerializer,
@@ -22,6 +22,7 @@ from .student import (
 from .transcript import TranscriptResultSerializer, TranscriptUploadSerializer
 
 __all__ = [
+    'AdminSettingsSerializer',
     'AdminUserSerializer',
     'AlumniConversionResultSerializer',
     'AlumniConversionSerializer',

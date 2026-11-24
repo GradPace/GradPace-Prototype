@@ -46,4 +46,5 @@ urlpatterns = [
         views.AdminUserDetailView.as_view(),
         name='admin-user-detail',
     ),
+    path('admin/settings/', views.AdminSettingsView.as_view(), name='admin-settings'),
 ]
