@@ -12,7 +12,7 @@ from intelligence.models import Job
 from .algorithms import calculate_benchmark_score
 from .best_fit import best_fit_jobs
 from .catalog import label_for, skill_catalog
-from .config import get_config
+from .config import find_config, get_config
 from .job_benchmark import build_job_benchmark, get_job
 from .relevance import rank_resources_by_relevance
 from .scoring import score_groups, score_student
@@ -193,34 +193,30 @@ class MyBenchmarkView(APIView):
         return Response(result)
 
 
-class MyScoringOptionsView(APIView):
-    """What the input pickers offer the logged-in student, when they have a
-    scoring config (see MyBenchmarkView): skill levels, skill groups (the
-    tools in each, and the points each is worth), courses and certificates.
-    404 if the caller has no student profile, or no config applies to them
-    (their school, location or target job don't match one)."""
+class ScoringOptionsView(APIView):
+    """What the input pickers offer for a scoring config (see
+    MyBenchmarkView): skill levels, skill groups (the tools in each, and the
+    points each is worth), courses and certificates.
+
+    Takes ?role= (SOC code), ?school= and ?location= instead of reading the
+    student's profile, so a new student can load the pickers before they
+    have one. 404 if no config matches all three."""
 
     @extend_schema(
         parameters=[
-            OpenApiParameter(
-                'role',
-                str,
-                required=False,
-                description="SOC code, e.g. 15-1252. Defaults to the profile's target_job.",
-            )
+            OpenApiParameter('role', str, description='SOC code, e.g. 15-1252.'),
+            OpenApiParameter('school', str, description='e.g. Old Dominion University'),
+            OpenApiParameter('location', str, description='e.g. Norfolk, VA'),
         ],
         responses={200: ScoringOptionsSerializer},
     )
     def get(self, request):
-        try:
-            profile = request.user.student_profile
-        except StudentProfile.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
         soc_code = request.query_params.get('role')
-        job = get_job(soc_code) if soc_code is not None else profile.target_job
-        config = get_config(profile, job) if job is not None else None
-        if config is None:
+        config = find_config(
+            soc_code, request.query_params.get('school'), request.query_params.get('location')
+        )
+        job = get_job(soc_code) if config else None
+        if job is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         # Scoring nobody's skills gives each group's points with none earned.

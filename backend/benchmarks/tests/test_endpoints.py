@@ -315,8 +315,13 @@ def test_me_with_a_config_saves_the_configured_score(client, job, odu_student):
     assert odu_student.readiness_score == body['overall_readiness_score']
 
 
-def test_options_lists_everything_the_pickers_need(client, job, odu_student):
-    response = client.get('/api/benchmark/me/options/', **auth_header(client, odu_student.user))
+OPTIONS_URL = (
+    f'/api/benchmark/options/?role=15-1252&school={CONFIG.school}&location={CONFIG.location}'
+)
+
+
+def test_options_lists_everything_the_pickers_need(client, job, student):
+    response = client.get(OPTIONS_URL, **auth_header(client, student.user))
 
     assert response.status_code == 200
     data = response.json()
@@ -330,18 +335,25 @@ def test_options_lists_everything_the_pickers_need(client, job, odu_student):
     assert [lvl['value'] for lvl in data['levels']] == ['beginner', 'intermediate', 'expert']
 
 
-def test_options_404s_without_a_profile_or_a_config(client, job, student):
-    assert (
-        client.get('/api/benchmark/me/options/', **auth_header(client, UserFactory())).status_code
-        == 404
-    )
-    student.target_job = job
-    student.save()
-    assert (
-        client.get('/api/benchmark/me/options/', **auth_header(client, student.user)).status_code
-        == 404
-    )
+def test_options_works_before_the_student_has_a_profile(client, job):
+    response = client.get(OPTIONS_URL, **auth_header(client, UserFactory()))
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    'query',
+    [
+        '',
+        '?role=15-1252',
+        '?role=99-9999&school=Old Dominion University&location=Norfolk, VA',
+        '?role=15-1252&school=Other U&location=Norfolk, VA',
+        '?role=15-1252&school=Old Dominion University&location=Austin, TX',
+    ],
+)
+def test_options_404s_when_no_config_matches(client, job, student, query):
+    response = client.get(f'/api/benchmark/options/{query}', **auth_header(client, student.user))
+    assert response.status_code == 404
 
 
 def test_options_requires_authentication(client, job):
-    assert client.get('/api/benchmark/me/options/').status_code == 401
+    assert client.get(OPTIONS_URL).status_code == 401

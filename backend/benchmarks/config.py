@@ -114,15 +114,21 @@ def _same(a, b):
     return (a or '').strip().casefold() == (b or '').strip().casefold()
 
 
+def find_config(soc_code, school, location):
+    """The ScoringConfig for this role, school and location, or None. School
+    and location ignore case and surrounding spaces."""
+    for config in CONFIGS:
+        if (
+            soc_code == config.soc_code
+            and _same(school, config.school)
+            and _same(location, config.location)
+        ):
+            return config
+    return None
+
+
 def get_config(student_profile, job):
     """The ScoringConfig for this student scored against this job, or None
     (use the base score). Needs the job, the student's school and their
     location to all match."""
-    for config in CONFIGS:
-        if (
-            job.soc_code == config.soc_code
-            and _same(student_profile.uni, config.school)
-            and _same(student_profile.location, config.location)
-        ):
-            return config
-    return None
+    return find_config(job.soc_code, student_profile.uni, student_profile.location)
