@@ -19,9 +19,8 @@ type StudentProfile = {
   updated_at: string; // ISO timestamp
 };
 
-// GET /api/benchmark/demo/me/ - the demo readiness score (GP-82): skills
-// out of 50 + courses out of 50 + certificate bonus. Computed on request,
-// never stored on the profile.
+// GET /api/benchmark/me/ for a student with a scoring config: skills out of
+// 50 + courses out of 50 + certificate bonus.
 type SkillGroupResult = {
   key: string;
   name: string;
@@ -30,9 +29,9 @@ type SkillGroupResult = {
   best_tool: string | null; // label of the tool that earned the points
   level: string | null; // Learning / Practicing / Project ready
 };
-type DemoReadiness = {
+type Readiness = {
   overall_readiness_score: number;
-  skills: { points: number; out_of: number; groups: SkillGroupResult[] };
+  skill_groups: { points: number; out_of: number; groups: SkillGroupResult[] };
   courses: {
     points: number;
     out_of: number;
@@ -77,13 +76,18 @@ export default function ProfilePage2() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [readiness, setReadiness] = useState<DemoReadiness | null>(null);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [readinessError, setReadinessError] = useState<string | null>(null);
 
   useEffect(() => {
     // A missing profile or login is handled by the profile request below
-    apiGet<DemoReadiness>("/api/benchmark/demo/me/")
-      .then(setReadiness)
+    apiGet<Readiness>("/api/benchmark/me/")
+      .then((data) => {
+        // Only students with a scoring config (school + location + target
+        // role) get the breakdown
+        if ((data as Partial<Readiness>).skill_groups) setReadiness(data);
+        else setReadinessError("No readiness score for your school and role yet.");
+      })
       .catch(() => setReadinessError("Could not load your readiness score."));
     apiGet<StudentProfile>("/api/auth/profile/")
       .then(setProfile)
@@ -127,7 +131,7 @@ function Dashboard({
   readinessError,
 }: {
   profile: StudentProfile;
-  readiness: DemoReadiness | null;
+  readiness: Readiness | null;
   readinessError: string | null;
 }) {
   const firstName = capitalize(profile.first_name);
@@ -181,7 +185,7 @@ function Dashboard({
           </ul>
         </Card>
 
-        {/* Career readiness - the demo score and what makes it up */}
+        {/* Career readiness - the score and what makes it up */}
         <Card className="lg:col-span-2">
           <ReadinessDetails readiness={readiness} error={readinessError} />
         </Card>
@@ -302,7 +306,7 @@ function ReadinessDetails({
   readiness,
   error,
 }: {
-  readiness: DemoReadiness | null;
+  readiness: Readiness | null;
   error: string | null;
 }) {
   const score = readiness?.overall_readiness_score ?? null;
@@ -327,8 +331,8 @@ function ReadinessDetails({
           <div className="flex w-full flex-1 flex-col gap-4">
             <ScoreBar
               label="Skills"
-              points={readiness.skills.points}
-              outOf={readiness.skills.out_of}
+              points={readiness.skill_groups.points}
+              outOf={readiness.skill_groups.out_of}
             />
             <ScoreBar
               label="Courses"
@@ -370,11 +374,11 @@ function ReadinessDetails({
       {readiness && showBreakdown && (
         <Modal title="Skill breakdown" onClose={() => setShowBreakdown(false)}>
           <p className="text-sm text-slate">
-            {readiness.skills.points.toFixed(1)} of {readiness.skills.out_of}{" "}
+            {readiness.skill_groups.points.toFixed(1)} of {readiness.skill_groups.out_of}{" "}
             skill points. Your best tool in each area counts.
           </p>
           <ul className="mt-5 flex flex-col gap-4">
-            {readiness.skills.groups.map((group) => (
+            {readiness.skill_groups.groups.map((group) => (
               <li key={group.key}>
                 <ScoreBar
                   label={group.name}

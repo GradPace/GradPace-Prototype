@@ -13,7 +13,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 
 const READINESS = {
   overall_readiness_score: 50.07,
-  skills: {
+  skill_groups: {
     points: 20.91,
     out_of: 50,
     groups: [
@@ -58,7 +58,7 @@ function stubProfileResponse(response: {
     "fetch",
     vi.fn().mockImplementation((url: string) => {
       const body =
-        url.includes("/api/benchmark/demo/me/") && response.ok
+        url.includes("/api/benchmark/me/") && response.ok
           ? READINESS
           : response.body;
       return Promise.resolve({

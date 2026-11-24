@@ -12,7 +12,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 
 const READINESS = {
   overall_readiness_score: 50.07,
-  skills: {
+  skill_groups: {
     groups: [
       {
         key: "language",

@@ -16,9 +16,9 @@ import {
   apiPatch,
 } from "../../lib/api/api";
 
-// The demo is scoped to one school, major, location and role (GP-82), so
+// Scoring is set up for one school, major, location and role (GP-82), so
 // these are picked from a set instead of typed. Values must match the
-// backend's demo scope (benchmarks/job_benchmark_demo.py).
+// backend's scoring config (benchmarks/config.py).
 const UNIVERSITIES = ["Old Dominion University"];
 const MAJORS = ["Computer Science"];
 const LOCATIONS = ["Norfolk, VA"];
@@ -34,22 +34,22 @@ const SEMESTERS = [
 ];
 
 // The courses and skills that count toward readiness come from the backend
-// (GET /api/benchmark/demo/options/), so the lists match its scoring.
+// (GET /api/benchmark/options/), so the lists match its scoring.
 type Course = { code: string; name: string };
 // name = exact O*NET name saved on the Skill row; label = what's shown
 type Tool = { name: string; label: string };
 type SkillGroup = { key: string; name: string; points: number; tools: Tool[] };
 // value = saved as proficiency_level; label = Learning / Practicing / Project ready
 type Level = { value: string; label: string; credit: number };
-type DemoOptions = {
+type ScoringOptions = {
   courses: Course[];
   skill_groups: SkillGroup[];
   levels: Level[];
   certificates: string[]; // names that earn the readiness bonus
 };
 
-// Certificate.issuing_organization is required on the backend; the demo's
-// certificates all start with their issuer ('AWS Certified ...',
+// Certificate.issuing_organization is required on the backend; the scoring
+// config's certificates all start with their issuer ('AWS Certified ...',
 // 'CompTIA Security+', 'Microsoft Certified: ...').
 function issuerOf(certificate: string): string {
   return certificate.split(/[\s:]/)[0];
@@ -426,7 +426,7 @@ type Saved = {
 };
 
 // Older rows may say 'advanced' or be unrated - show them as the demo's
-// Practicing / Learning (same mapping as the backend's scoring_demo.py).
+// Practicing / Learning (same mapping as the backend's scoring config).
 function demoLevel(level: string): string {
   if (level === "advanced") return "intermediate";
   return level || "beginner";
@@ -439,7 +439,7 @@ export default function ProfileSetupPage() {
   const [firstName, setFirstName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [options, setOptions] = useState<DemoOptions | null>(null);
+  const [options, setOptions] = useState<ScoringOptions | null>(null);
   const [optionsError, setOptionsError] = useState<string | null>(null);
   // null while checking whether a profile exists
   const [mode, setMode] = useState<"create" | "edit" | null>(null);
@@ -495,7 +495,7 @@ export default function ProfileSetupPage() {
   }
 
   // Add what's newly picked, update what changed, delete what was removed.
-  // Only items on the demo's lists are touched.
+  // Only items on the config's lists are touched.
   async function syncCourses(courses: Course[]) {
     const have = saved.current.courses;
     for (const course of courses) {
@@ -622,7 +622,11 @@ export default function ProfileSetupPage() {
     apiGet<{ first_name: string }>("/api/auth/me")
       .then((user) => setFirstName(user.first_name))
       .catch(() => setFirstName(null));
-    apiGet<DemoOptions>("/api/benchmark/demo/options/")
+    apiGet<ScoringOptions>(`/api/benchmark/options/?${new URLSearchParams({
+      role: TARGET_ROLES[0].value,
+      school: UNIVERSITIES[0],
+      location: LOCATIONS[0],
+    })}`)
       .then(setOptions)
       .catch(() => setOptionsError("Could not load the course and skill lists."));
 

@@ -95,7 +95,7 @@ function stubMe(firstName: string | null, existing?: Existing) {
         return json({ results: existing?.[kind] ?? [] })
       }
     }
-    if (url.includes('/api/benchmark/demo/options/')) {
+    if (url.includes('/api/benchmark/options/')) {
       return Promise.resolve({
         ok: true,
         status: 200,

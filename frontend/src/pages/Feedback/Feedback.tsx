@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar/Navbar";
 import { ApiError, apiGet } from "../../lib/api/api";
 
-// GET /api/benchmark/demo/me/ - only the parts this page uses
+// GET /api/benchmark/me/ for a student with a scoring config - only the parts
+// this page uses
 type SkillGroupResult = {
   key: string;
   name: string;
@@ -20,9 +21,9 @@ type NextStep = {
   points_available: number;
 };
 
-type DemoReadiness = {
+type Readiness = {
   overall_readiness_score: number;
-  skills: { groups: SkillGroupResult[] };
+  skill_groups: { groups: SkillGroupResult[] };
   courses: {
     list: { code: string; name: string; taken: boolean; points: number }[];
   };
@@ -81,12 +82,17 @@ function points(value: number): string {
 
 export default function Feedback() {
   const navigate = useNavigate();
-  const [readiness, setReadiness] = useState<DemoReadiness | null>(null);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiGet<DemoReadiness>("/api/benchmark/demo/me/")
-      .then(setReadiness)
+    apiGet<Readiness>("/api/benchmark/me/")
+      .then((data) => {
+        // Only students with a scoring config (school + location + target
+        // role) get the breakdown
+        if ((data as Partial<Readiness>).skill_groups) setReadiness(data);
+        else setError("Feedback isn't available for your school and role yet.");
+      })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
           navigate("/login", { replace: true }); // not logged in / token expired
@@ -113,9 +119,9 @@ export default function Feedback() {
   );
 }
 
-function FeedbackDetails({ readiness }: { readiness: DemoReadiness }) {
+function FeedbackDetails({ readiness }: { readiness: Readiness }) {
   // Groups still short of full credit, the ones worth the most first
-  const skillGaps = readiness.skills.groups
+  const skillGaps = readiness.skill_groups.groups
     .filter((group) => group.out_of - group.points >= 0.01)
     .sort((a, b) => b.out_of - b.points - (a.out_of - a.points));
   const coursesLeft = readiness.courses.list.filter((course) => !course.taken);
