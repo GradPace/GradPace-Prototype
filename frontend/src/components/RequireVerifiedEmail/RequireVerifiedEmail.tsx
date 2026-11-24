@@ -46,9 +46,7 @@ export default function RequireVerifiedEmail({
         <Navbar />
         <p className="mx-auto max-w-6xl px-8 pt-2">Loading...</p>
         {state === "logged-out" && <Navigate to="/login" replace />}
-        {state === "unverified" && (
-          <Navigate to="/verify-your-email" replace />
-        )}
+        {state === "unverified" && <Navigate to="/verify-your-email" replace />}
       </div>
     );
   }
