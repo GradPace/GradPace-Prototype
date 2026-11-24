@@ -60,17 +60,30 @@ def test_totals_split_by_source(client):
     body = get_report(client).json()
 
     assert body['totals'] == {
-        'jobs': {'total': 3, 'official': 2, 'generated': 1},
+        'jobs': {'total': 3, 'by_source': {'official': 2, 'generated': 1}},
         'skills': {'total': 5},
-        'postings': {'total': 6, 'generated': 6},
+        'postings': {'total': 6, 'by_source': {'generated': 6}},
     }
+
+
+@pytest.mark.django_db
+def test_unexpected_and_blank_sources_are_counted(client):
+    JobFactory(source='official')
+    JobFactory(source='bls')
+    JobFactory(source='')
+
+    jobs = get_report(client).json()['totals']['jobs']
+
+    assert jobs['by_source'] == {'official': 1, 'generated': 0, 'bls': 1, 'unknown': 1}
+    assert sum(jobs['by_source'].values()) == jobs['total'] == 3
 
 
 @pytest.mark.django_db
 def test_empty_catalog(client):
     body = get_report(client).json()
 
-    assert body['totals']['jobs'] == {'total': 0, 'official': 0, 'generated': 0}
+    assert body['totals']['jobs'] == {'total': 0, 'by_source': {'official': 0, 'generated': 0}}
+    assert body['totals']['postings'] == {'total': 0, 'by_source': {'generated': 0}}
     assert body['occupations'] == []
     assert body['catalog_updated_at'] is None
 

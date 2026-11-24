@@ -70,25 +70,23 @@ class EventChatRequestSerializer(serializers.Serializer):
 # --- Admin data health -----------------------------------------------------
 
 
-class JobTotalsSerializer(serializers.Serializer):
+class SourceTotalsSerializer(serializers.Serializer):
     total = serializers.IntegerField()
-    official = serializers.IntegerField()
-    generated = serializers.IntegerField()
+    by_source = serializers.DictField(
+        child=serializers.IntegerField(),
+        help_text='Count per source value in the database (every model choice, even at 0), '
+        "with 'unknown' for a blank source. Always adds up to total.",
+    )
 
 
 class SkillTotalsSerializer(serializers.Serializer):
     total = serializers.IntegerField()
 
 
-class PostingTotalsSerializer(serializers.Serializer):
-    total = serializers.IntegerField()
-    generated = serializers.IntegerField()
-
-
 class CatalogTotalsSerializer(serializers.Serializer):
-    jobs = JobTotalsSerializer()
+    jobs = SourceTotalsSerializer()
     skills = SkillTotalsSerializer()
-    postings = PostingTotalsSerializer()
+    postings = SourceTotalsSerializer()
 
 
 class OccupationHealthSerializer(serializers.Serializer):

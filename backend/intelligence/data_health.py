@@ -6,7 +6,7 @@ data/validate_postings.py, which checks the JSON files before seeding.
 
 from collections import Counter
 
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max
 
 from accounts.models import StudentProfile
 
@@ -17,15 +17,20 @@ from .models import Job, JobPosting, JobSkill
 # data/validate_postings.py (MIN_PER_OCCUPATION) holds the generated data to.
 MIN_POSTINGS = 3
 MAX_UNRECOGNIZED = 20
+UNKNOWN_SOURCE = 'unknown'
 
 
 def _by_source(model):
-    """{'total': n, <source>: n, ...} - one key per SOURCE_CHOICES value, so
-    a source with no rows still shows as 0."""
-    counts = {'total': Count('id')}
-    for source, _ in model.SOURCE_CHOICES:
-        counts[source] = Count('id', filter=Q(source=source))
-    return model.objects.aggregate(**counts)
+    """{'total': n, 'by_source': {<source>: n, ...}}. Counts every source
+    actually in the table - the database doesn't enforce SOURCE_CHOICES, and
+    a hand-made row can hold anything - with null/blank as 'unknown', so the
+    split always adds up to the total. Each SOURCE_CHOICES value is listed
+    even with no rows."""
+    by_source = {source: 0 for source, _ in model.SOURCE_CHOICES}
+    for row in model.objects.values('source').annotate(n=Count('id')).order_by():
+        source = (row['source'] or '').strip() or UNKNOWN_SOURCE
+        by_source[source] = by_source.get(source, 0) + row['n']
+    return {'total': sum(by_source.values()), 'by_source': by_source}
 
 
 def catalog_totals():
