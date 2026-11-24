@@ -47,8 +47,13 @@ function dropDeadTokens(status: number, sentToken: boolean) {
   }
 }
 
-export async function apiFetch<T>(path: string, body: unknown, auth = false): Promise<T> {
-  return apiSend<T>('POST', path, body, auth)
+export async function apiFetch<T>(
+  path: string,
+  body: unknown,
+  auth = false,
+  method: 'POST' | 'PATCH' = 'POST',
+): Promise<T> {
+  return apiSend<T>(method, path, body, auth)
 }
 
 // PATCH/DELETE always send the access token - they only exist on a

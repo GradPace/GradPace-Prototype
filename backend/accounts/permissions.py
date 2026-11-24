@@ -29,3 +29,11 @@ class IsAlumni(HasRole):
 
     role = roles.ALUMNI
     message = 'Only alumni can take the alumni survey.'
+
+
+class IsAdmin(HasRole):
+    """Only admin accounts. Users get this role through the make_admin
+    management command."""
+
+    role = roles.ADMIN
+    message = 'Only admins can do this.'

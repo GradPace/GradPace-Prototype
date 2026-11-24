@@ -16,6 +16,7 @@ Crow's-foot symbols: `||` exactly one, `o|` zero or one, `o{` zero or many.
 
 ```mermaid
 erDiagram
+    CustomUser |o--o{ SiteSettings : "SiteSettings.updated_by"
     CustomUser ||--o{ EventChat : "EventChat.user"
     CustomUser ||--o| AdminProfile : "AdminProfile.user"
     CustomUser ||--o| AlumniProfile : "AlumniProfile.user"
@@ -102,6 +103,12 @@ erDiagram
         DateTimeField created_at
         DateTimeField updated_at
     }
+    SiteSettings {
+        PositiveSmallIntegerField id PK
+        BooleanField require_email_verification
+        DateTimeField updated_at
+        UUIDField updated_by_id FK
+    }
     Job {
         UUIDField id PK
         CharField title
@@ -174,6 +181,7 @@ erDiagram
 | `JobPosting` | `job` | `Job` | many JobPosting to one Job | row deleted |
 | `JobPosting` | `skills` | `JobSkill` | many-to-many | link row removed |
 | `JobSkill` | `job` | `Job` | many JobSkill to one Job | row deleted |
+| `SiteSettings` | `updated_by` | `CustomUser` | many SiteSettings to one CustomUser (optional) | FK set to NULL |
 | `Skill` | `student` | `StudentProfile` | many Skill to one StudentProfile | row deleted |
 | `StudentProfile` | `target_job` | `Job` | many StudentProfile to one Job (optional) | FK set to NULL |
 | `StudentProfile` | `user` | `CustomUser` | one-to-one | row deleted |

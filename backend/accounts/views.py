@@ -7,7 +7,7 @@ from django.http import Http404
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import exceptions, generics, permissions, status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -20,9 +20,19 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import roles
 from .email_verification import send_verification_email, user_for_token
 from .mail import send_in_background
-from .models import AlumniProfile, Certificate, Role, Skill, StudentProfile, TakenClass
-from .permissions import IsStudent
+from .models import (
+    AlumniProfile,
+    Certificate,
+    Role,
+    SiteSettings,
+    Skill,
+    StudentProfile,
+    TakenClass,
+)
+from .permissions import IsAdmin, IsStudent
 from .serializers import (
+    AdminSettingsSerializer,
+    AdminUserSerializer,
     AlumniConversionResultSerializer,
     AlumniConversionSerializer,
     CertificateSerializer,
@@ -527,3 +537,62 @@ class SkillDetailView(StudentOwnedMixin, generics.RetrieveUpdateDestroyAPIView):
 
     serializer_class = SkillSerializer
     queryset = Skill.objects.all()
+
+
+class AdminUserListView(generics.ListAPIView):
+    """Admins only - every user, newest first, paginated. ?search= matches
+    part of the email, ignoring case. Names can't be searched or sorted:
+    they're encrypted at rest (accounts/fields.py)."""
+
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    serializer_class = AdminUserSerializer
+
+    def get_queryset(self):
+        # id breaks created_at ties so pages don't overlap or skip rows.
+        users = User.objects.select_related('role').order_by('-created_at', 'id')
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            users = users.filter(email__icontains=search)
+        return users
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter('search', str, description='Part of an email, any case.'),
+        ]
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+
+class AdminUserDetailView(generics.UpdateAPIView):
+    """Admins only - PATCH is_active to deactivate or reactivate a user. An
+    admin can't deactivate themselves. Deactivating also blacklists the
+    user's refresh tokens, so reactivating them means logging in again
+    rather than reviving old sessions."""
+
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    serializer_class = AdminUserSerializer
+    queryset = User.objects.select_related('role')
+    http_method_names = ['patch']
+
+    def perform_update(self, serializer):
+        was_active = serializer.instance.is_active
+        user = serializer.save()
+        if was_active and not user.is_active:
+            _blacklist_all_outstanding_tokens(user)
+
+
+class AdminSettingsView(generics.RetrieveUpdateAPIView):
+    """Admins only - the site-wide settings (SiteSettings, one row). GET reads
+    them; PATCH changes require_email_verification and records who did.
+    Turning verification off doesn't touch anyone's email_verified."""
+
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    serializer_class = AdminSettingsSerializer
+    http_method_names = ['get', 'patch']
+
+    def get_object(self):
+        return SiteSettings.load()
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)

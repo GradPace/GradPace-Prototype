@@ -12,6 +12,9 @@ import VerifyEmailPage from "./pages/VerifyEmailPage/VerifyEmailPage";
 import CheckEmailPage from "./pages/CheckEmailPage/CheckEmailPage";
 import RequireVerifiedEmail from "./components/RequireVerifiedEmail/RequireVerifiedEmail";
 import Feedback from "./pages/Feedback/Feedback";
+import RequireAdmin from "./components/RequireAdmin/RequireAdmin";
+import RedirectAdmin from "./components/RedirectAdmin/RedirectAdmin";
+import AdminDashboardPage from "./pages/AdminDashboardPage/AdminDashboardPage";
 {
   /* Routes is what nests <Route>s
    * Route maps URLs to components
@@ -27,7 +30,9 @@ function App() {
         path="/profileSetup"
         element={
           <RequireVerifiedEmail>
-            <ProfileSetupPage />
+            <RedirectAdmin>
+              <ProfileSetupPage />
+            </RedirectAdmin>
           </RequireVerifiedEmail>
         }
       />
@@ -35,7 +40,19 @@ function App() {
         path="/profile"
         element={
           <RequireVerifiedEmail>
-            <ProfilePage />
+            <RedirectAdmin>
+              <ProfilePage />
+            </RedirectAdmin>
+          </RequireVerifiedEmail>
+        }
+      />
+      <Route
+        path="/admin-dashboard"
+        element={
+          <RequireVerifiedEmail>
+            <RequireAdmin>
+              <AdminDashboardPage />
+            </RequireAdmin>
           </RequireVerifiedEmail>
         }
       />

@@ -49,6 +49,19 @@ describe('apiFetch', () => {
     })
   })
 
+  it('sends another method when asked, keeping the token', async () => {
+    localStorage.setItem('access', 'my-token')
+    mockFetchOnce(200, {})
+
+    await apiFetch('/api/auth/admin/users/1/', { is_active: false }, true, 'PATCH')
+
+    const [, options] = vi.mocked(fetch).mock.calls[0]
+    expect(options?.method).toBe('PATCH')
+    expect(options?.headers).toMatchObject({
+      Authorization: 'Bearer my-token',
+    })
+  })
+
   it('throws an ApiError with the status and joined validation messages on failure', async () => {
     mockFetchOnce(400, { password: ['Too short.', 'Needs a number.'] })
 

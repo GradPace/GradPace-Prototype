@@ -124,6 +124,33 @@ describe('CheckEmailPage', () => {
     expect(screen.queryByText('profile page')).not.toBeInTheDocument()
   })
 
+  it('sends the user on straight away when verification has been turned off', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(getReply({ ...unverified, email_verification_required: false })),
+    )
+
+    renderPage()
+
+    expect(await screen.findByText('profile page')).toBeInTheDocument()
+  })
+
+  it('sends the user on when verification is turned off while they wait', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(getReply({ ...unverified, email_verification_required: true }))
+        .mockResolvedValueOnce(getReply({ ...unverified, email_verification_required: false })),
+    )
+    renderPage()
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: /i.ve verified my email/i }))
+
+    expect(await screen.findByText('profile page')).toBeInTheDocument()
+  })
+
   it('sends the user on if the account turns out to be verified already', async () => {
     vi.stubGlobal(
       'fetch',
