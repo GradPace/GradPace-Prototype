@@ -2,9 +2,9 @@
 
 Backend for the Alumni Survey (spec 3.1.1.6.2). Alumni answer questions about
 their current job, the skills they use most, and how well GradPace prepared
-them. Responses are stored for the Survey Results Dashboard (3.1.1.3.2), which
-doesn't have an endpoint yet. Until it does, staff can browse responses
-read-only in Django admin under **Surveys**.
+them. Responses feed the Survey Results Dashboard (3.1.1.3.2) through the
+admin-only [results endpoint](#get-apisurveyadminresults) (GP-98). Staff can
+also browse individual responses read-only in Django admin under **Surveys**.
 
 Every request needs the usual `Authorization: Bearer <access token>` header.
 An interactive version is at `http://localhost:8000/api/docs/` under **survey**.
@@ -77,6 +77,52 @@ submission returns `{"detail": "Survey already submitted."}`.
 
 The response is linked to the caller automatically, and `submitted_at` is set
 by the server. Values for either one in the request body are ignored.
+
+## `GET /api/survey/admin/results/`
+
+Every response summed up for the admin dashboard (GP-98). **Admins only**:
+logged out gets **401**, any other role **403**. The counting lives in
+`surveys/results.py`.
+
+The response is aggregates only. It never includes a name, email, user id,
+response id or job title.
+
+```json
+{
+  "response_count": 12,
+  "latest_submitted_at": "2026-11-20T14:03:11Z",
+  "ratings": {
+    "preparedness_rating": {
+      "average": 3.75,
+      "distribution": [
+        {"value": 1, "count": 0}, {"value": 2, "count": 1}, {"value": 3, "count": 3},
+        {"value": 4, "count": 5}, {"value": 5, "count": 3}
+      ]
+    },
+    "platform_helpfulness_rating": {"average": 4.1, "distribution": ["...same shape..."]}
+  },
+  "by_industry": [
+    {"code": "software", "label": "Software / Tech", "count": 5,
+     "preparedness_average": 3.8, "platform_helpfulness_average": 4.2},
+    {"code": "finance", "label": "Finance / Banking", "count": 2,
+     "preparedness_average": null, "platform_helpfulness_average": null}
+  ],
+  "top_skills": [{"name": "Amazon Web Services AWS software", "label": "AWS", "count": 4}],
+  "suggested_skills": [{"skill": "Rust", "count": 3}],
+  "feedback_count": 12,
+  "feedback": [{"text": "The gap list told me exactly what to study.", "submitted_at": "2026-11-20T14:03:11Z"}]
+}
+```
+
+| Field | Rules |
+|---|---|
+| `response_count`, `latest_submitted_at` | `latest_submitted_at` is `null` when there are no responses |
+| `ratings.*.average` | rounded to 2 places; `null` when there are no responses |
+| `ratings.*.distribution` | always all five values 1-5 in order, `0` where nobody chose it |
+| `by_industry` | every industry from the table below, in that order, `0` when empty. The averages are `null` unless the industry has **at least 3 responses** (`MIN_RESPONSES_FOR_AVERAGES`), so a small industry's ratings can't be traced to one person |
+| `top_skills` | every skill named, most common first (ties by label). Show `label` (the skill picker's label); `name` is the catalog name |
+| `suggested_skills` | free text, so grouped ignoring case and surrounding spaces ("Rust", "rust" and " Rust " are one), shown with the most common spelling. Most common first, at most 20 |
+| `feedback` | `text` and `submitted_at` only, newest first, at most 50. `feedback_count` is the total |
 
 ### Industry values
 

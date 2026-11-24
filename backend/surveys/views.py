@@ -4,10 +4,11 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAlumni
+from accounts.permissions import IsAdmin, IsAlumni
 
+from . import results
 from .models import AlumniSurveyResponse
-from .serializers import AlumniSurveyResponseSerializer
+from .serializers import AlumniSurveyResponseSerializer, SurveyResultsSerializer
 
 ALREADY_SUBMITTED = {'detail': 'Survey already submitted.'}
 
@@ -49,3 +50,14 @@ class AlumniSurveyView(APIView):
             # Lost a race with a concurrent submission by the same user.
             return Response(ALREADY_SUBMITTED, status=status.HTTP_400_BAD_REQUEST)
         return Response(AlumniSurveyResponseSerializer(survey).data, status=status.HTTP_201_CREATED)
+
+
+class AdminSurveyResultsView(APIView):
+    """Admins only - every Alumni Survey response summed up for the Survey
+    Results Dashboard. Aggregates only, see results.py."""
+
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+    @extend_schema(responses={200: SurveyResultsSerializer})
+    def get(self, request):
+        return Response(SurveyResultsSerializer(results.report()).data)
