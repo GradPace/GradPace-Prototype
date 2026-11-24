@@ -1,4 +1,4 @@
-export type Me = { email: string; email_verified: boolean };
+export type Me = { email: string; email_verified: boolean; role: string | null };
 
 // The account details RequireVerifiedEmail last fetched, kept so the Verify
 // your email page it redirects to can show them straight away instead of
@@ -12,4 +12,9 @@ export function knownMe(): Me | null {
 
 export function rememberMe(me: Me | null) {
   known = me;
+}
+
+// Role names match backend/accounts/roles.py.
+export function isAdmin(me: Me | null): boolean {
+  return me?.role === "admin";
 }

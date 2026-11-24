@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { ApiError, apiFetch, apiGet } from "../../lib/api/api";
 import Turnstile from "../../components/Turnstile/Turnstile";
+import { isAdmin, knownMe, rememberMe, type Me } from "../../lib/api/me";
 
 /*
  * login page
@@ -49,6 +50,19 @@ export default function LoginPage() {
       return;
     }
 
+    // Admins have no student profile - they go to the admin dashboard. If the
+    // account can't be fetched, fall through to the profile check below.
+    try {
+      const me = await apiGet<Me>("/api/auth/me/");
+      rememberMe(me);
+      if (isAdmin(me)) {
+        navigate("/admin-dashboard", { replace: true });
+        return;
+      }
+    } catch {
+      // the profile check reports or redirects as before
+    }
+
     // here will determin where the user gets send based on if they finished setting up their profile
     try {
       await apiGet("/api/auth/profile/");
@@ -63,7 +77,12 @@ export default function LoginPage() {
   }
 
   if (localStorage.getItem("access")) {
-    return <Navigate to="/profile" replace />;
+    return (
+      <Navigate
+        to={isAdmin(knownMe()) ? "/admin-dashboard" : "/profile"}
+        replace
+      />
+    );
   }
 
   return (
