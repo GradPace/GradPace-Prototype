@@ -5,10 +5,11 @@ import pytest
 
 from accounts.factories import StudentProfileFactory
 from intelligence.factories import JobFactory
+from intelligence.models import JobSkill
 
 from ..config import ODU_SOFTWARE_DEVELOPER as CONFIG
 from ..config import ScoringConfig, get_config
-from ..job_benchmark import SkillGroup
+from ..job_benchmark import SkillGroup, build_job_benchmark, get_job
 from ..scoring import (
     certificate_bonus,
     next_steps,
@@ -174,3 +175,24 @@ def test_config_levels_can_differ_per_config():
         levels={'beginner': ('Low', 0.5), 'expert': ('High', 1.0)},
     )
     assert other.level_credit('beginner') == ('Low', 0.5)
+
+
+# --- the config against the real seed data ---
+
+
+def test_every_group_tool_is_a_real_job_skill(real_catalog):
+    """Guards against a typo in a config's skill groups silently scoring nothing."""
+    job = get_job(CONFIG.soc_code)
+    job_skills = set(JobSkill.objects.filter(job=job).values_list('name', flat=True))
+    for _, name, tools in CONFIG.skill_groups:
+        assert set(tools) <= job_skills, name
+
+
+def test_config_benchmark_uses_postings_in_its_location(real_catalog):
+    benchmark = build_job_benchmark(
+        get_job(CONFIG.soc_code), location=CONFIG.location, skill_groups=CONFIG.skill_groups
+    )
+
+    assert benchmark.postings_used > 0
+    assert len(benchmark.groups) == len(CONFIG.skill_groups)
+    assert all(0 < g.weight <= 1 for g in benchmark.groups)
