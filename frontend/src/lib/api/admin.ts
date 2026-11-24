@@ -68,6 +68,24 @@ export interface DataHealth {
   student_locations: StudentLocations
 }
 
+// GET/PATCH /api/auth/admin/settings/ - the site-wide switches (one row).
+export interface SiteSettings {
+  require_email_verification: boolean
+  updated_at: string
+  // Email of the admin who last changed them; null if nobody has yet.
+  updated_by: string | null
+}
+
+export function getSettings(): Promise<SiteSettings> {
+  return apiGet<SiteSettings>('/api/auth/admin/settings/')
+}
+
+export function updateSettings(changes: {
+  require_email_verification: boolean
+}): Promise<SiteSettings> {
+  return apiFetch<SiteSettings>('/api/auth/admin/settings/', changes, true, 'PATCH')
+}
+
 // The backend's PAGE_SIZE. Sent as `limit` so Prev/Next steps match the server.
 export const USERS_PAGE_SIZE = 50
 

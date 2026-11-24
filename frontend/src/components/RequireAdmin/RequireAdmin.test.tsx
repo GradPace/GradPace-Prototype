@@ -4,8 +4,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import RequireAdmin from './RequireAdmin'
 import { rememberMe } from '../../lib/api/me'
 
-const ADMIN = { email: 'a@b.com', email_verified: true, role: 'admin' }
-const STUDENT = { email: 'a@b.com', email_verified: true, role: 'student' }
+const ADMIN = { email: 'a@b.com', email_verified: true, role: 'admin', email_verification_required: true }
+const STUDENT = { email: 'a@b.com', email_verified: true, role: 'student', email_verification_required: true }
 
 function me(body: unknown, status = 200) {
   return { ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) }

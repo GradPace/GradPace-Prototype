@@ -13,9 +13,10 @@ vi.mock('../../lib/api/admin', async (importOriginal) => ({
   setUserActive: vi.fn(),
   // The Data quality tab has its own tests - here it only needs to open.
   getDataHealth: vi.fn(() => new Promise(() => {})),
+  getSettings: vi.fn(() => new Promise(() => {})),
 }))
 
-const ME = { email: 'admin@example.com', email_verified: true, role: 'admin' }
+const ME = { email: 'admin@example.com', email_verified: true, role: 'admin', email_verification_required: true }
 
 function user(overrides: Partial<AdminUser>): AdminUser {
   return {
@@ -222,5 +223,10 @@ describe('AdminDashboardPage', () => {
     await clicker.click(screen.getByRole('tab', { name: 'Users' }))
 
     expect(await screen.findByText('ada@example.com')).toBeInTheDocument()
+
+    await clicker.click(screen.getByRole('tab', { name: 'Settings' }))
+
+    expect(screen.getByRole('tab', { name: 'Settings' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText('Loading settings...')).toBeInTheDocument()
   })
 })

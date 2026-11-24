@@ -53,7 +53,7 @@ describe('Navbar', () => {
 
   it('shows an Admin link in place of Profile to an admin', () => {
     localStorage.setItem('access', 'fake-token')
-    rememberMe({ email: 'a@b.com', email_verified: true, role: 'admin' })
+    rememberMe({ email: 'a@b.com', email_verified: true, role: 'admin', email_verification_required: true })
 
     render(
       <MemoryRouter>
@@ -72,7 +72,7 @@ describe('Navbar', () => {
 
   it('shows Profile and no Admin link to a student', () => {
     localStorage.setItem('access', 'fake-token')
-    rememberMe({ email: 'a@b.com', email_verified: true, role: 'student' })
+    rememberMe({ email: 'a@b.com', email_verified: true, role: 'student', email_verification_required: true })
 
     render(
       <MemoryRouter>

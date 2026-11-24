@@ -5,8 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import LoginPage from './LoginPage'
 import { knownMe, rememberMe } from '../../lib/api/me'
 
-const STUDENT = { email: 'a@b.com', email_verified: true, role: 'student' }
-const ADMIN = { email: 'a@b.com', email_verified: true, role: 'admin' }
+const STUDENT = { email: 'a@b.com', email_verified: true, role: 'student', email_verification_required: true }
+const ADMIN = { email: 'a@b.com', email_verified: true, role: 'admin', email_verification_required: true }
 
 const navigateMock = vi.fn()
 

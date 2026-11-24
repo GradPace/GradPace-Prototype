@@ -1,12 +1,14 @@
 import { useState } from "react";
 import Navbar from "../../components/Navbar/Navbar";
 import DataQualityTab from "./DataQualityTab";
+import SettingsTab from "./SettingsTab";
 import UsersTab from "./UsersTab";
 
 // One entry per tab - add a tab (survey results is next) by adding a line.
 const TABS = [
   { id: "users", label: "Users", Panel: UsersTab },
   { id: "data-quality", label: "Data quality", Panel: DataQualityTab },
+  { id: "settings", label: "Settings", Panel: SettingsTab },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];

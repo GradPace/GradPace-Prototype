@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar/Navbar";
 import { ApiError, apiFetch, apiGet } from "../../lib/api/api";
-import { knownMe, rememberMe, type Me } from "../../lib/api/me";
+import {
+  canSkipVerification,
+  knownMe,
+  rememberMe,
+  type Me,
+} from "../../lib/api/me";
 
 // Where a new account lands until its email is verified: tells the user to
 // open the link that was emailed, and can send it again. Verified users who
@@ -20,12 +25,13 @@ export default function CheckEmailPage() {
       .then((latest) => {
         rememberMe(latest);
         setMe(latest);
+        if (canSkipVerification(latest)) navigate("/profile", { replace: true });
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) setLoggedOut(true);
         else setError("We couldn't load your account. Please refresh the page.");
       });
-  }, []);
+  }, [navigate]);
 
   async function resend() {
     setNotice(null);
@@ -58,7 +64,7 @@ export default function CheckEmailPage() {
     try {
       const latest = await apiGet<Me>("/api/auth/me/");
       setMe(latest);
-      if (latest.email_verified) {
+      if (canSkipVerification(latest)) {
         navigate("/profile", { replace: true });
       } else {
         setNotice(
