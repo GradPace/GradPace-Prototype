@@ -47,7 +47,12 @@ function dropDeadTokens(status: number, sentToken: boolean) {
   }
 }
 
-export async function apiFetch<T>(path: string, body: unknown, auth = false): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  body: unknown,
+  auth = false,
+  method: 'POST' | 'PATCH' = 'POST',
+): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (auth) {
     const access = localStorage.getItem('access')
@@ -56,7 +61,7 @@ export async function apiFetch<T>(path: string, body: unknown, auth = false): Pr
   const sentToken = Boolean(headers.Authorization)
 
   const res = await fetch(`${API_URL}${path}`, {
-    method: 'POST',
+    method,
     headers,
     body: JSON.stringify(body),
   })
