@@ -68,6 +68,62 @@ export interface DataHealth {
   student_locations: StudentLocations
 }
 
+// GET /api/survey/admin/results/ (backend/surveys/results.py) - the Alumni
+// Survey summed up. Aggregates only: no names, emails, ids or job titles.
+
+export interface RatingSummary {
+  // Null when there are no responses.
+  average: number | null
+  // Always all five values 1-5, in order.
+  distribution: { value: number; count: number }[]
+}
+
+export interface IndustryResult {
+  code: string
+  label: string
+  count: number
+  // Null below 3 responses in the industry, so they can't be traced to one alum.
+  preparedness_average: number | null
+  platform_helpfulness_average: number | null
+}
+
+export interface TopSkillCount {
+  name: string
+  label: string
+  count: number
+}
+
+export interface SuggestedSkillCount {
+  skill: string
+  count: number
+}
+
+export interface SurveyFeedback {
+  text: string
+  submitted_at: string
+}
+
+export interface SurveyResults {
+  response_count: number
+  latest_submitted_at: string | null
+  ratings: {
+    preparedness_rating: RatingSummary
+    platform_helpfulness_rating: RatingSummary
+  }
+  // Every industry choice, in choice order, even at 0.
+  by_industry: IndustryResult[]
+  top_skills: TopSkillCount[]
+  // At most 20.
+  suggested_skills: SuggestedSkillCount[]
+  feedback_count: number
+  // Newest first, at most 50.
+  feedback: SurveyFeedback[]
+}
+
+export function getSurveyResults(): Promise<SurveyResults> {
+  return apiGet<SurveyResults>('/api/survey/admin/results/')
+}
+
 // GET/PATCH /api/auth/admin/settings/ - the site-wide switches (one row).
 export interface SiteSettings {
   require_email_verification: boolean
