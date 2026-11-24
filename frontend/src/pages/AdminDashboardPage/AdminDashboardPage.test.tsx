@@ -11,6 +11,8 @@ vi.mock('../../lib/api/admin', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/api/admin')>()),
   listUsers: vi.fn(),
   setUserActive: vi.fn(),
+  // The Data quality tab has its own tests - here it only needs to open.
+  getDataHealth: vi.fn(() => new Promise(() => {})),
 }))
 
 const ME = { email: 'admin@example.com', email_verified: true, role: 'admin' }
@@ -214,7 +216,7 @@ describe('AdminDashboardPage', () => {
       'aria-selected',
       'true',
     )
-    expect(screen.getByRole('heading', { name: 'Data quality' })).toBeInTheDocument()
+    expect(screen.getByText('Loading data quality...')).toBeInTheDocument()
     expect(screen.queryByText('ada@example.com')).not.toBeInTheDocument()
 
     await clicker.click(screen.getByRole('tab', { name: 'Users' }))

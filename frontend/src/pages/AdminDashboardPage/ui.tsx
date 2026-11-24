@@ -19,10 +19,30 @@ export function Card({
   );
 }
 
+// A summary number with a label and an optional line of detail under it.
+export function Stat({
+  label,
+  value,
+  children,
+}: {
+  label: string;
+  value: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <Card>
+      <p className="text-sm font-medium text-slate">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-ink">{value}</p>
+      {children && <div className="mt-2 text-xs text-slate">{children}</div>}
+    </Card>
+  );
+}
+
 const BADGE_TONES = {
   neutral: "bg-line text-ink",
   active: "bg-blue/20 text-ink",
   inactive: "bg-pink/15 text-pink",
+  flag: "bg-pink/15 text-pink",
 };
 
 export function Badge({

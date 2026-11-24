@@ -21,32 +21,51 @@ export interface Page<T> {
   results: T[]
 }
 
+// GET /api/intelligence/admin/data-health/ (backend/intelligence/data_health.py).
+
+// Every source value in the table, plus 'unknown' for blank - always adds
+// up to total. Not just official/generated: hand-made rows can hold anything.
 export interface SourceTotals {
   total: number
   by_source: Record<string, number>
 }
 
+export interface CatalogTotals {
+  jobs: SourceTotals
+  // JobSkill has no source field.
+  skills: { total: number }
+  postings: SourceTotals
+}
+
+// One per Job, so a soc_code can appear once per source.
+export interface OccupationHealth {
+  soc_code: string
+  title: string
+  source: string
+  posting_count: number
+  skill_count: number
+  median_annual_wage: number | null
+  few_postings: boolean
+  missing_wage: boolean
+  no_skills: boolean
+}
+
+// Counts and the unrecognized values only - nothing that identifies a student.
+export interface StudentLocations {
+  profiles: number
+  with_location: number
+  recognized: number
+  unrecognized: number
+  // Most common first, at most 20.
+  unrecognized_values: { location: string; count: number }[]
+}
+
 export interface DataHealth {
-  totals: { jobs: SourceTotals; skills: { total: number }; postings: SourceTotals }
+  totals: CatalogTotals
+  // Latest updated_at across jobs, skills and postings; null when empty.
   catalog_updated_at: string | null
-  occupations: {
-    soc_code: string
-    title: string
-    source: string
-    posting_count: number
-    skill_count: number
-    median_annual_wage: number | null
-    few_postings: boolean
-    missing_wage: boolean
-    no_skills: boolean
-  }[]
-  student_locations: {
-    profiles: number
-    with_location: number
-    recognized: number
-    unrecognized: number
-    unrecognized_values: { location: string; count: number }[]
-  }
+  occupations: OccupationHealth[]
+  student_locations: StudentLocations
 }
 
 // The backend's PAGE_SIZE. Sent as `limit` so Prev/Next steps match the server.
