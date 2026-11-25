@@ -99,16 +99,17 @@ test.describe('signup -> verify email -> profile setup -> profile -> logout -> l
     await expect(page.getByText(/hi ada, welcome to gradpace/i)).toBeVisible()
 
     await page.getByLabel('Student ID').fill(`S-${Date.now()}`)
-    await page.getByLabel('University').fill('State University')
-    await page.getByLabel('Major').fill('Computer Science')
-    await page.getByLabel('Location').fill('Remote')
+    await page.getByLabel('University').selectOption('Old Dominion University')
+    await page.getByLabel('Major').selectOption('Computer Science')
+    await page.getByLabel('Location').fill('Norfolk, VA')
+    await page.getByLabel('Target role').selectOption({ label: 'Software Developer' })
     await page.getByRole('button', { name: 'Create Profile' }).click()
 
     await expect(page).toHaveURL(/\/profile$/)
     await expect(
       page.getByRole('heading', { level: 2, name: 'Ada Lovelace' }),
     ).toBeVisible()
-    await expect(page.getByRole('list').getByText('State University')).toBeVisible()
+    await expect(page.getByRole('list').getByText('Old Dominion University')).toBeVisible()
 
     // Reload - confirms the JWT round-tripped through localStorage and the
     // backend still accepts it, not just that client-side routing worked.

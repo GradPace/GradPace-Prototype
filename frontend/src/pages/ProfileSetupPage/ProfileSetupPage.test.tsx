@@ -51,7 +51,7 @@ async function fillAboutYou(user: ReturnType<typeof userEvent.setup>) {
   await user.type(await screen.findByLabelText(/student id/i), 'S123')
   await user.selectOptions(screen.getByLabelText(/university/i), 'Old Dominion University')
   await user.selectOptions(screen.getByLabelText(/major/i), 'Computer Science')
-  await user.selectOptions(screen.getByLabelText(/location/i), 'Norfolk, VA')
+  await user.type(screen.getByLabelText(/location/i), 'Norfolk, VA')
   await user.selectOptions(screen.getByLabelText(/target role/i), 'Software Developer')
 }
 
@@ -168,7 +168,7 @@ describe('ProfileSetupPage', () => {
     await user.type(await screen.findByLabelText(/student id/i), 'S123')
     await user.selectOptions(screen.getByLabelText(/university/i), 'Old Dominion University')
     await user.selectOptions(screen.getByLabelText(/major/i), 'Computer Science')
-    await user.selectOptions(screen.getByLabelText(/location/i), 'Norfolk, VA')
+    await user.type(screen.getByLabelText(/location/i), 'Norfolk, VA')
     await user.selectOptions(screen.getByLabelText(/target role/i), 'Software Developer')
     await user.click(screen.getByRole('button', { name: /create profile/i }))
 
@@ -204,7 +204,7 @@ describe('ProfileSetupPage', () => {
     await user.type(await screen.findByLabelText(/student id/i), 'S123')
     await user.selectOptions(screen.getByLabelText(/university/i), 'Old Dominion University')
     await user.selectOptions(screen.getByLabelText(/major/i), 'Computer Science')
-    await user.selectOptions(screen.getByLabelText(/location/i), 'Norfolk, VA')
+    await user.type(screen.getByLabelText(/location/i), 'Norfolk, VA')
     await user.selectOptions(screen.getByLabelText(/target role/i), 'Software Developer')
 
     // Multi-select dropdown: pick two, then remove one from the list below

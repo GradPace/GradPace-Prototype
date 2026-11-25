@@ -1,3 +1,4 @@
+import LocationInput from "../../components/LocationInput/LocationInput";
 import Navbar from "../../components/Navbar/Navbar";
 import { Link, useNavigate } from "react-router-dom";
 import { logout } from "../../lib/api/auth";
@@ -767,12 +768,18 @@ export default function ProfileSetupPage() {
                   options={asOptions(MAJORS)}
                   defaultValue={profile?.major}
                 />
-                <SelectField
-                  label="Location"
-                  name="location"
-                  options={asOptions(LOCATIONS)}
-                  defaultValue={profile?.location}
-                />
+                <label className="flex flex-col gap-2 text-sm font-medium text-ink">
+                  Location
+                  <LocationInput
+                    name="location"
+                    defaultValue={profile?.location ?? ""}
+                    className={FIELD_CLASS}
+                  />
+                  <span className="text-xs font-normal text-slate">
+                    Start typing your city and pick it from the list - we use
+                    it to find events near you.
+                  </span>
+                </label>
                 <SelectField
                   label="Target role"
                   name="target_job"
