@@ -8,6 +8,8 @@ export interface Place {
   state: string
 }
 
-export function searchPlaces(query: string): Promise<Place[]> {
-  return apiGet<Place[]>(`/api/intelligence/places/?q=${encodeURIComponent(query)}`)
+export async function searchPlaces(query: string): Promise<Place[]> {
+  const places = await apiGet<Place[]>(`/api/intelligence/places/?q=${encodeURIComponent(query)}`)
+  // Suggestions are optional - anything unexpected just means none.
+  return Array.isArray(places) ? places : []
 }
