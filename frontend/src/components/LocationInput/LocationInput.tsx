@@ -6,6 +6,8 @@ const MIN_QUERY_LENGTH = 2;
 interface Props {
   name: string;
   className?: string;
+  // Starting text, e.g. a saved location when editing a profile.
+  defaultValue?: string;
   // How long to wait after the last keystroke before asking the backend.
   debounceMs?: number;
 }
@@ -15,9 +17,9 @@ interface Props {
 // can be typed, and the value is whatever is in the box (read it through the
 // form's `name`). Picking a suggestion makes the saved location an exact
 // "City, ST", which the backend can find for event distances.
-export default function LocationInput({ name, className, debounceMs = 200 }: Props) {
+export default function LocationInput({ name, className, defaultValue = "", debounceMs = 200 }: Props) {
   const listId = useId();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(defaultValue);
   // Results are stored with the query they answer, so a slow reply for
   // "nor" can never show up under what's now "norfolk".
   const [result, setResult] = useState<{ query: string; places: Place[] }>({
